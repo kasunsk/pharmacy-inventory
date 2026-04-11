@@ -26,6 +26,11 @@ header a {
   text-decoration: none;
 }
 
+nav {
+  display: flex;
+  gap: 12px;
+}
+
 .card {
   background: #fff;
   border: 1px solid #d9e2ec;
@@ -47,6 +52,10 @@ input {
   width: 100%;
   padding: 8px;
   margin-top: 6px;
+}
+
+select {
+  padding: 8px;
 }
 
 button {
@@ -81,5 +90,50 @@ td {
 
 .error {
   color: #b42318;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.summary-card {
+  background: #fff;
+  border: 1px solid #d9e2ec;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.summary-card h3 {
+  margin-top: 0;
+  margin-bottom: 8px;
+}
+
+.sales-form,
+.history-card,
+.bill-card {
+  max-width: none;
+  margin-bottom: 16px;
+}
+
+.line-items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.line-item-row {
+  display: grid;
+  grid-template-columns: 2fr 80px 140px 120px 100px;
+  gap: 8px;
+  align-items: center;
+}
+
+.line-item-row input,
+.line-item-row select {
+  width: 100%;
+  margin-top: 0;
 }
 

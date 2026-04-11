@@ -59,3 +59,73 @@ export async function createMedicine(payload) {
   return response.json();
 }
 
+export async function fetchSalesSummary(period) {
+  const response = await fetch(`${API_BASE}/sales/summary?period=${encodeURIComponent(period)}`, {
+    headers: {
+      ...authHeaders()
+    }
+  });
+  if (!response.ok) {
+    throw new Error('Failed to fetch sales summary.');
+  }
+  return response.json();
+}
+
+export async function createPrescriptionSale(payload) {
+  const response = await fetch(`${API_BASE}/sales`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...authHeaders()
+    },
+    body: JSON.stringify(payload)
+  });
+  if (!response.ok) {
+    let message = 'Failed to create sale.';
+    try {
+      const body = await response.json();
+      if (body.message) {
+        message = body.message;
+      }
+    } catch (_) {
+    }
+    throw new Error(message);
+  }
+  return response.json();
+}
+
+export async function fetchTransactions(filters) {
+  const params = new URLSearchParams();
+  if (filters?.transactionId) {
+    params.set('transactionId', filters.transactionId);
+  }
+  if (filters?.fromDate) {
+    params.set('fromDate', filters.fromDate);
+  }
+  if (filters?.toDate) {
+    params.set('toDate', filters.toDate);
+  }
+
+  const response = await fetch(`${API_BASE}/sales?${params.toString()}`, {
+    headers: {
+      ...authHeaders()
+    }
+  });
+  if (!response.ok) {
+    throw new Error('Failed to fetch transactions.');
+  }
+  return response.json();
+}
+
+export async function fetchTransactionBill(transactionId) {
+  const response = await fetch(`${API_BASE}/sales/${encodeURIComponent(transactionId)}`, {
+    headers: {
+      ...authHeaders()
+    }
+  });
+  if (!response.ok) {
+    throw new Error('Failed to fetch bill details.');
+  }
+  return response.json();
+}
+

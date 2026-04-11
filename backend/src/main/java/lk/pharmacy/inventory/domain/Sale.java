@@ -16,6 +16,9 @@ public class Sale {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(nullable = false, unique = true)
+    private String transactionId;
+
     @Column(nullable = false)
     private Instant createdAt = Instant.now();
 
@@ -28,6 +31,12 @@ public class Sale {
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal totalAfterDiscount;
 
+    @Column
+    private String customerName;
+
+    @Column
+    private String customerPhone;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JsonIgnore
     private User createdBy;
@@ -37,6 +46,14 @@ public class Sale {
 
     public Long getId() {
         return id;
+    }
+
+    public String getTransactionId() {
+        return transactionId;
+    }
+
+    public void setTransactionId(String transactionId) {
+        this.transactionId = transactionId;
     }
 
     public Instant getCreatedAt() {
@@ -65,6 +82,22 @@ public class Sale {
 
     public void setTotalAfterDiscount(BigDecimal totalAfterDiscount) {
         this.totalAfterDiscount = totalAfterDiscount;
+    }
+
+    public String getCustomerName() {
+        return customerName;
+    }
+
+    public void setCustomerName(String customerName) {
+        this.customerName = customerName;
+    }
+
+    public String getCustomerPhone() {
+        return customerPhone;
+    }
+
+    public void setCustomerPhone(String customerPhone) {
+        this.customerPhone = customerPhone;
     }
 
     public User getCreatedBy() {

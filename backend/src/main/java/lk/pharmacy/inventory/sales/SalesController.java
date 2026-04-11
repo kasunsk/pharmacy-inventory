@@ -1,12 +1,15 @@
 package lk.pharmacy.inventory.sales;
 
 import jakarta.validation.Valid;
-import lk.pharmacy.inventory.domain.Sale;
-import lk.pharmacy.inventory.repo.SaleRepository;
 import lk.pharmacy.inventory.sales.dto.CreateSaleRequest;
+import lk.pharmacy.inventory.sales.dto.SaleBillResponse;
+import lk.pharmacy.inventory.sales.dto.SaleTransactionSummaryResponse;
+import lk.pharmacy.inventory.sales.dto.SalesPeriod;
+import lk.pharmacy.inventory.sales.dto.SalesSummaryResponse;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -14,23 +17,37 @@ import java.util.List;
 public class SalesController {
 
     private final SalesService salesService;
-    private final SaleRepository saleRepository;
 
-    public SalesController(SalesService salesService, SaleRepository saleRepository) {
+    public SalesController(SalesService salesService) {
         this.salesService = salesService;
-        this.saleRepository = saleRepository;
     }
 
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN','EMPLOYER')")
-    public Sale create(@Valid @RequestBody CreateSaleRequest request) {
+    public SaleBillResponse create(@Valid @RequestBody CreateSaleRequest request) {
         return salesService.createSale(request);
     }
 
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN','EMPLOYER')")
-    public List<Sale> list() {
-        return saleRepository.findAll();
+    public List<SaleTransactionSummaryResponse> list(
+            @RequestParam(required = false) String transactionId,
+            @RequestParam(required = false) LocalDate fromDate,
+            @RequestParam(required = false) LocalDate toDate
+    ) {
+        return salesService.findTransactions(transactionId, fromDate, toDate);
+    }
+
+    @GetMapping("/{transactionId}")
+    @PreAuthorize("hasAnyRole('ADMIN','EMPLOYER')")
+    public SaleBillResponse getByTransactionId(@PathVariable String transactionId) {
+        return salesService.getBillByTransactionId(transactionId);
+    }
+
+    @GetMapping("/summary")
+    @PreAuthorize("hasAnyRole('ADMIN','EMPLOYER')")
+    public SalesSummaryResponse summary(@RequestParam(defaultValue = "DAY") SalesPeriod period) {
+        return salesService.getSalesSummary(period);
     }
 }
 

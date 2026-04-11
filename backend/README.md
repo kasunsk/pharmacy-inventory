@@ -21,6 +21,10 @@ gradle test
 - `POST /auth/login`
 - `GET /inventory`
 - `GET /inventory/{id}`
+- `POST /sales` (create prescription sale + bill response)
+- `GET /sales?transactionId=&fromDate=&toDate=` (history/search)
+- `GET /sales/{transactionId}` (full bill retrieval)
+- `GET /sales/summary?period=DAY|WEEK|MONTH|YEAR`
 
 Use `Authorization: Bearer <token>` for protected endpoints.
 

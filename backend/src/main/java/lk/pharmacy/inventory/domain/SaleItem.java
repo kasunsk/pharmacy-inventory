@@ -27,11 +27,20 @@ public class SaleItem {
     @Column(nullable = false)
     private int quantity;
 
+    @Column(nullable = false)
+    private String unitType;
+
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal unitPrice;
 
     @Column(nullable = false, precision = 12, scale = 2)
+    private BigDecimal unitCost;
+
+    @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal lineTotal;
+
+    @Column(nullable = false, precision = 12, scale = 2)
+    private BigDecimal lineCost;
 
     public Long getId() {
         return id;
@@ -69,6 +78,14 @@ public class SaleItem {
         this.quantity = quantity;
     }
 
+    public String getUnitType() {
+        return unitType;
+    }
+
+    public void setUnitType(String unitType) {
+        this.unitType = unitType;
+    }
+
     public BigDecimal getUnitPrice() {
         return unitPrice;
     }
@@ -83,6 +100,22 @@ public class SaleItem {
 
     public void setLineTotal(BigDecimal lineTotal) {
         this.lineTotal = lineTotal;
+    }
+
+    public BigDecimal getUnitCost() {
+        return unitCost;
+    }
+
+    public void setUnitCost(BigDecimal unitCost) {
+        this.unitCost = unitCost;
+    }
+
+    public BigDecimal getLineCost() {
+        return lineCost;
+    }
+
+    public void setLineCost(BigDecimal lineCost) {
+        this.lineCost = lineCost;
     }
 }
 

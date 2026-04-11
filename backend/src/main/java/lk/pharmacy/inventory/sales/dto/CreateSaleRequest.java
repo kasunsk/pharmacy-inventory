@@ -8,7 +8,9 @@ import java.util.List;
 
 public record CreateSaleRequest(
         @Valid @NotNull List<SaleItemRequest> items,
-        BigDecimal discountAmount
+        BigDecimal discountAmount,
+        String customerName,
+        String customerPhone
 ) {
 }
 

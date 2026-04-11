@@ -6,39 +6,50 @@ import lk.pharmacy.inventory.domain.SaleItem;
 import lk.pharmacy.inventory.domain.User;
 import lk.pharmacy.inventory.exception.ApiException;
 import lk.pharmacy.inventory.repo.MedicineRepository;
+import lk.pharmacy.inventory.repo.SaleItemRepository;
 import lk.pharmacy.inventory.repo.SaleRepository;
-import lk.pharmacy.inventory.sales.dto.CreateSaleRequest;
-import lk.pharmacy.inventory.sales.dto.SaleItemRequest;
+import lk.pharmacy.inventory.sales.dto.*;
 import lk.pharmacy.inventory.util.CurrentUserService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.*;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.TemporalAdjusters;
+import java.util.List;
+import java.util.UUID;
 
 @Service
 public class SalesService {
 
     private final MedicineRepository medicineRepository;
     private final SaleRepository saleRepository;
+    private final SaleItemRepository saleItemRepository;
     private final CurrentUserService currentUserService;
 
     public SalesService(MedicineRepository medicineRepository,
                         SaleRepository saleRepository,
+                        SaleItemRepository saleItemRepository,
                         CurrentUserService currentUserService) {
         this.medicineRepository = medicineRepository;
         this.saleRepository = saleRepository;
+        this.saleItemRepository = saleItemRepository;
         this.currentUserService = currentUserService;
     }
 
     @Transactional
-    public Sale createSale(CreateSaleRequest request) {
+    public SaleBillResponse createSale(CreateSaleRequest request) {
         if (request.items() == null || request.items().isEmpty()) {
             throw new ApiException("At least one sale item is required");
         }
 
         User currentUser = currentUserService.getCurrentUser();
         Sale sale = new Sale();
+        sale.setTransactionId(generateTransactionId());
         sale.setCreatedBy(currentUser);
+        sale.setCustomerName(trimToNull(request.customerName()));
+        sale.setCustomerPhone(trimToNull(request.customerPhone()));
 
         BigDecimal beforeDiscount = BigDecimal.ZERO;
 
@@ -50,23 +61,40 @@ public class SalesService {
                 throw new ApiException("Insufficient stock for medicine: " + medicine.getName());
             }
 
+            BigDecimal pricePerUnit = itemRequest.pricePerUnit() == null
+                    ? medicine.getSellingPrice()
+                    : itemRequest.pricePerUnit();
+            if (pricePerUnit.compareTo(BigDecimal.ZERO) < 0) {
+                throw new ApiException("Price per unit cannot be negative");
+            }
+
             medicine.setQuantity(medicine.getQuantity() - itemRequest.quantity());
             medicineRepository.save(medicine);
 
-            BigDecimal lineTotal = medicine.getSellingPrice().multiply(BigDecimal.valueOf(itemRequest.quantity()));
+            BigDecimal quantity = BigDecimal.valueOf(itemRequest.quantity());
+            BigDecimal lineTotal = pricePerUnit.multiply(quantity);
+            BigDecimal lineCost = medicine.getPurchasePrice().multiply(quantity);
             beforeDiscount = beforeDiscount.add(lineTotal);
 
             SaleItem saleItem = new SaleItem();
             saleItem.setSale(sale);
             saleItem.setMedicine(medicine);
-            saleItem.setMedicineNameSnapshot(medicine.getName());
+            saleItem.setMedicineNameSnapshot(
+                    trimToNull(itemRequest.medicineName()) == null ? medicine.getName() : itemRequest.medicineName().trim()
+            );
             saleItem.setQuantity(itemRequest.quantity());
-            saleItem.setUnitPrice(medicine.getSellingPrice());
+            saleItem.setUnitType(itemRequest.unitType().trim());
+            saleItem.setUnitPrice(pricePerUnit);
+            saleItem.setUnitCost(medicine.getPurchasePrice());
             saleItem.setLineTotal(lineTotal);
+            saleItem.setLineCost(lineCost);
             sale.getItems().add(saleItem);
         }
 
         BigDecimal discount = request.discountAmount() == null ? BigDecimal.ZERO : request.discountAmount();
+        if (discount.compareTo(BigDecimal.ZERO) < 0) {
+            throw new ApiException("Discount cannot be negative");
+        }
         if (discount.compareTo(beforeDiscount) > 0) {
             throw new ApiException("Discount cannot exceed total");
         }
@@ -75,7 +103,116 @@ public class SalesService {
         sale.setDiscountAmount(discount);
         sale.setTotalAfterDiscount(beforeDiscount.subtract(discount));
 
-        return saleRepository.save(sale);
+        Sale saved = saleRepository.save(sale);
+        return toBill(saved);
+    }
+
+    @Transactional(readOnly = true)
+    public List<SaleTransactionSummaryResponse> findTransactions(String transactionId, LocalDate fromDate, LocalDate toDate) {
+        Instant start = fromDate == null
+                ? Instant.EPOCH
+                : fromDate.atStartOfDay(ZoneId.systemDefault()).toInstant();
+        Instant end = toDate == null
+                ? Instant.now().plusSeconds(1)
+                : toDate.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant();
+
+        String tx = trimToNull(transactionId);
+        List<Sale> sales = tx == null
+                ? saleRepository.findByCreatedAtBetweenOrderByCreatedAtDesc(start, end)
+                : saleRepository.findByTransactionIdContainingIgnoreCaseAndCreatedAtBetweenOrderByCreatedAtDesc(tx, start, end);
+
+        return sales.stream().map(sale -> new SaleTransactionSummaryResponse(
+                sale.getTransactionId(),
+                sale.getCreatedAt(),
+                sale.getCustomerName(),
+                sale.getTotalAfterDiscount(),
+                sale.getItems().size()
+        )).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public SaleBillResponse getBillByTransactionId(String transactionId) {
+        Sale sale = saleRepository.findByTransactionId(transactionId)
+                .orElseThrow(() -> new ApiException("Transaction not found"));
+        return toBill(sale);
+    }
+
+    @Transactional(readOnly = true)
+    public SalesSummaryResponse getSalesSummary(SalesPeriod period) {
+        ZoneId zone = ZoneId.systemDefault();
+        LocalDate now = LocalDate.now(zone);
+
+        LocalDate startDate;
+        LocalDate endExclusiveDate;
+
+        switch (period) {
+            case DAY -> {
+                startDate = now;
+                endExclusiveDate = now.plusDays(1);
+            }
+            case WEEK -> {
+                startDate = now.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+                endExclusiveDate = startDate.plusDays(7);
+            }
+            case MONTH -> {
+                startDate = now.withDayOfMonth(1);
+                endExclusiveDate = startDate.plusMonths(1);
+            }
+            case YEAR -> {
+                startDate = now.withDayOfYear(1);
+                endExclusiveDate = startDate.plusYears(1);
+            }
+            default -> throw new ApiException("Unsupported period");
+        }
+
+        Instant start = startDate.atStartOfDay(zone).toInstant();
+        Instant end = endExclusiveDate.atStartOfDay(zone).toInstant();
+
+        BigDecimal totalSales = saleRepository.sumTotalBetween(start, end);
+        BigDecimal totalCost = saleItemRepository.sumCostBetween(start, end);
+        long saleCount = saleRepository.countByCreatedAtBetween(start, end);
+
+        return new SalesSummaryResponse(
+                period,
+                startDate.toString(),
+                endExclusiveDate.minusDays(1).toString(),
+                saleCount,
+                totalSales,
+                totalCost,
+                totalSales.subtract(totalCost)
+        );
+    }
+
+    private SaleBillResponse toBill(Sale sale) {
+        return new SaleBillResponse(
+                sale.getTransactionId(),
+                sale.getCreatedAt(),
+                sale.getCustomerName(),
+                sale.getCustomerPhone(),
+                sale.getItems().stream().map(item -> new SaleBillItemResponse(
+                        item.getMedicineNameSnapshot(),
+                        item.getQuantity(),
+                        item.getUnitType(),
+                        item.getUnitPrice(),
+                        item.getLineTotal()
+                )).toList(),
+                sale.getTotalBeforeDiscount(),
+                sale.getDiscountAmount(),
+                sale.getTotalAfterDiscount()
+        );
+    }
+
+    private String generateTransactionId() {
+        String datePart = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
+        String suffix = UUID.randomUUID().toString().substring(0, 6).toUpperCase();
+        return "TXN-" + datePart + "-" + suffix;
+    }
+
+    private String trimToNull(String value) {
+        if (value == null || value.trim().isEmpty()) {
+            return null;
+        }
+        return value.trim();
     }
 }
 
