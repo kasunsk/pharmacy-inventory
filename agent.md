@@ -8,7 +8,7 @@ Current implementation is a split monorepo:
 - `backend/`: Spring Boot (Gradle, Java 17)
 - `frontend/`: React + Vite
 
-It supports inventory, prescription-based sales, billing, transaction history, file upload, and analytics.
+It supports inventory, billing, transaction history, file upload, and analytics.
 
 ---
 
@@ -42,18 +42,20 @@ Default seed user:
 
 ### Inventory Management
 - Create, update, delete medicines
-- Track medicine name, batch, expiry, supplier, purchase/selling prices, quantity
+- Track medicine name, batch, expiry, supplier, unit type, purchase/selling prices, quantity
 - Alerts:
   - Low stock
   - Upcoming expiry
 
-### Prescription-Based Sales and Billing
+### Billing Workflow
 - Create one sale with multiple medicine lines
 - Each line captures:
   - Medicine
-  - Quantity
-  - Unit type (tablets, capsules, bottle, etc.)
+  - Unit (auto-loaded from inventory)
   - Price per unit
+  - Quantity
+  - Usage instruction
+  - Optional remark
 - Auto line total and overall totals
 - Optional customer details (name, phone)
 - Stock validation before checkout
@@ -62,9 +64,10 @@ Default seed user:
 
 ### Transaction Records and Retrieval
 - Every sale is saved with unique `transactionId`
-- Transaction includes date/time, items, and totals
+- Transaction includes date/time, sales person, item list, and totals
 - History retrieval:
   - Search by transaction ID
+  - Filter by sales person
   - Filter by date range
 - Open a past transaction and view full bill
 
@@ -76,6 +79,9 @@ Default seed user:
   - Total cost
   - Total profit
   - Sale count
+- Breakdowns:
+  - Top-selling medicines
+  - Sales by user
 
 ### Files (Receipt/Prescription)
 - Upload and store receipt/prescription files linked to sales
@@ -88,7 +94,7 @@ Default seed user:
 - `GET /inventory`
 - `GET /inventory/{id}`
 - `POST /sales`
-- `GET /sales?transactionId=&fromDate=&toDate=`
+- `GET /sales?transactionId=&salesPerson=&fromDate=&toDate=`
 - `GET /sales/{transactionId}`
 - `GET /sales/summary?period=DAY|WEEK|MONTH|YEAR`
 
@@ -97,12 +103,29 @@ Detailed API examples are in `docs/api.md`.
 ---
 
 ## Frontend UX Highlights
-- Inventory page with create/search/view flow
-- Prescription Sales page with fast multi-line billing
+- Separate Login page with JWT session handling
+- Default redirect to Billing after successful login
+- Role-protected navigation tabs
+  - Billing
+  - Inventory
+  - Transaction History
+  - Sales Analytics
+- Inventory page with compact row-based create/search/view flow
+- Billing page with fast row-based multi-line entry
 - Immediate bill display after sale
-- Transaction history and bill reopening
+- Dedicated Transaction History page with filters and bill reopening
 - Print-ready bill from browser print
-- Sales Analytics dashboard for day/week/month/year
+- Sales Analytics dashboard for day/week/month/year with user and medicine breakdowns
+
+---
+
+## Backend Contract Notes (Recent)
+- `SaleItemRequest` now supports per-line `remark`
+- `SaleBillItemResponse` now returns `remark`
+- `SaleBillResponse` now returns `salesPerson`
+- `SaleTransactionSummaryResponse` now returns `salesPerson` and `medicines`
+- `SalesSummaryResponse` now returns `topSellingMedicines` and `salesByUser`
+- `Medicine` now includes `unitType` for inventory and billing auto-load consistency
 
 ---
 
