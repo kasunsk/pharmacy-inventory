@@ -1,0 +1,377 @@
+{
+  "info": {
+    "name": "Pharmacy Management API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Complete API collection grouped by Auth, Billing, Inventory, Transactions, and Users."
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "token", "value": "" },
+    { "key": "employeeId", "value": "2" },
+    { "key": "medicineId", "value": "1" },
+    { "key": "saleId", "value": "1" },
+    { "key": "transactionId", "value": "TXN-EXAMPLE" },
+    { "key": "fileId", "value": "1" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"admin123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "List Users",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/employees", "host": ["{{baseUrl}}"], "path": ["employees"] }
+          }
+        },
+        {
+          "name": "Create User",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"cashier1\",\n  \"password\": \"pass123\",\n  \"roles\": [\"BILLING\", \"TRANSACTIONS\"]\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/employees", "host": ["{{baseUrl}}"], "path": ["employees"] }
+          }
+        },
+        {
+          "name": "Update User",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"roles\": [\"INVENTORY\"],\n  \"enabled\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/employees/{{employeeId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["employees", "{{employeeId}}"]
+            }
+          }
+        },
+        {
+          "name": "Delete User",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/employees/{{employeeId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["employees", "{{employeeId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Inventory",
+      "item": [
+        {
+          "name": "List Inventory",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/inventory", "host": ["{{baseUrl}}"], "path": ["inventory"] }
+          }
+        },
+        {
+          "name": "Get Medicine",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/inventory/{{medicineId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["inventory", "{{medicineId}}"]
+            }
+          }
+        },
+        {
+          "name": "Create Medicine",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Azithromycin 500mg\",\n  \"batchNumber\": \"SL-AZI-010\",\n  \"expiryDate\": \"2027-03-15\",\n  \"supplier\": \"Sun Pharma\",\n  \"unitType\": \"tablet\",\n  \"purchasePrice\": 55.0,\n  \"sellingPrice\": 75.0,\n  \"quantity\": 120\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/inventory", "host": ["{{baseUrl}}"], "path": ["inventory"] }
+          }
+        },
+        {
+          "name": "Update Medicine",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Azithromycin 500mg\",\n  \"batchNumber\": \"SL-AZI-010\",\n  \"expiryDate\": \"2027-03-15\",\n  \"supplier\": \"Sun Pharma\",\n  \"unitType\": \"tablet\",\n  \"purchasePrice\": 58.0,\n  \"sellingPrice\": 80.0,\n  \"quantity\": 90\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/inventory/{{medicineId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["inventory", "{{medicineId}}"]
+            }
+          }
+        },
+        {
+          "name": "Delete Medicine",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/inventory/{{medicineId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["inventory", "{{medicineId}}"]
+            }
+          }
+        },
+        {
+          "name": "Low Stock Alert",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/inventory/alerts/low-stock?threshold=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["inventory", "alerts", "low-stock"],
+              "query": [{ "key": "threshold", "value": "10" }]
+            }
+          }
+        },
+        {
+          "name": "Expiry Alert",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/inventory/alerts/expiry?days=30",
+              "host": ["{{baseUrl}}"],
+              "path": ["inventory", "alerts", "expiry"],
+              "query": [{ "key": "days", "value": "30" }]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Billing",
+      "item": [
+        {
+          "name": "Create Sale",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerName\": \"Nimal Perera\",\n  \"customerPhone\": \"0771234567\",\n  \"discountAmount\": 0,\n  \"items\": [\n    {\n      \"medicineId\": 1,\n      \"medicineName\": \"Paracetamol 500mg\",\n      \"quantity\": 2,\n      \"unitType\": \"tablet\",\n      \"pricePerUnit\": 24.5,\n      \"allowPriceOverride\": true,\n      \"dosageInstruction\": \"Oral - Take 1 tablet once daily after meals\",\n      \"customDosageInstruction\": null,\n      \"remark\": \"After dinner\"\n    }\n  ]\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/sales", "host": ["{{baseUrl}}"], "path": ["sales"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Transactions",
+      "item": [
+        {
+          "name": "List Transactions",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/sales?transactionId=&salesPerson=&fromDate=&toDate=",
+              "host": ["{{baseUrl}}"],
+              "path": ["sales"],
+              "query": [
+                { "key": "transactionId", "value": "" },
+                { "key": "salesPerson", "value": "" },
+                { "key": "fromDate", "value": "" },
+                { "key": "toDate", "value": "" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Bill By Transaction",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/sales/{{transactionId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["sales", "{{transactionId}}"]
+            }
+          }
+        },
+        {
+          "name": "Sales Summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/sales/summary?period=DAY",
+              "host": ["{{baseUrl}}"],
+              "path": ["sales", "summary"],
+              "query": [{ "key": "period", "value": "DAY" }]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Files",
+      "item": [
+        {
+          "name": "Upload Receipt",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": ""
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/files/sales/{{saleId}}/receipt",
+              "host": ["{{baseUrl}}"],
+              "path": ["files", "sales", "{{saleId}}", "receipt"]
+            }
+          }
+        },
+        {
+          "name": "Upload Prescription",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": ""
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/files/sales/{{saleId}}/prescription",
+              "host": ["{{baseUrl}}"],
+              "path": ["files", "sales", "{{saleId}}", "prescription"]
+            }
+          }
+        },
+        {
+          "name": "Signed File URL",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/files/{{fileId}}/signed-url",
+              "host": ["{{baseUrl}}"],
+              "path": ["files", "{{fileId}}", "signed-url"]
+            }
+          }
+        },
+        {
+          "name": "View File",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/files/view/{{fileId}}?token=SIGNED_TOKEN",
+              "host": ["{{baseUrl}}"],
+              "path": ["files", "view", "{{fileId}}"],
+              "query": [{ "key": "token", "value": "SIGNED_TOKEN" }]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/health", "host": ["{{baseUrl}}"], "path": ["health"] }
+          }
+        }
+      ]
+    }
+  ]
+}
+

@@ -1,6 +1,10 @@
-# API Contract (Inventory View)
+# API Documentation
+
+Base URL: `http://localhost:8080`
 
 ## Authentication
+
+### Login
 
 `POST /auth/login`
 
@@ -19,124 +23,185 @@ Response:
 {
   "token": "<jwt>",
   "username": "admin",
-  "role": "ADMIN"
+  "roles": ["ADMIN"]
 }
 ```
 
-## List Inventory
+## Users (Admin)
 
-`GET /inventory`
+All `/employees` endpoints require `ROLE_ADMIN`.
 
-Headers:
+### List Users
 
-- `Authorization: Bearer <jwt>`
+`GET /employees`
 
-Response (sample):
+Response:
 
 ```json
 [
   {
     "id": 1,
-    "name": "Paracetamol",
-    "batchNumber": "B001",
-    "expiryDate": "2026-10-31",
-    "supplier": "ABC Pharma",
-    "purchasePrice": 20.00,
-    "sellingPrice": 30.00,
-    "quantity": 100
+    "username": "admin",
+    "roles": ["ADMIN"],
+    "enabled": true
   }
 ]
 ```
 
-## Inventory Detail
+### Create User
+
+`POST /employees`
+
+```json
+{
+  "username": "cashier1",
+  "password": "pass123",
+  "roles": ["BILLING", "TRANSACTIONS"]
+}
+```
+
+### Update User
+
+`PUT /employees/{id}`
+
+```json
+{
+  "roles": ["INVENTORY"],
+  "enabled": true
+}
+```
+
+### Delete User
+
+`DELETE /employees/{id}`
+
+## Inventory
+
+Requires role: `ADMIN` or `INVENTORY` (delete is `ADMIN` only).
+
+### List Inventory
+
+`GET /inventory`
+
+### Get Medicine
 
 `GET /inventory/{id}`
 
-Headers:
+### Create Medicine
 
-- `Authorization: Bearer <jwt>`
-
-Response (sample):
+`POST /inventory`
 
 ```json
 {
-  "id": 1,
-  "name": "Paracetamol",
-  "batchNumber": "B001",
-  "expiryDate": "2026-10-31",
-  "supplier": "ABC Pharma",
-  "purchasePrice": 20.00,
-  "sellingPrice": 30.00,
-  "quantity": 100
+  "name": "Paracetamol 500mg",
+  "batchNumber": "SL-PARA-101",
+  "expiryDate": "2027-01-31",
+  "supplier": "Hemas Pharma",
+  "unitType": "tablet",
+  "purchasePrice": 18.0,
+  "sellingPrice": 25.0,
+  "quantity": 150
 }
 ```
 
-## Sales Summary (Day/Week/Month/Year)
+### Update Medicine
 
-`GET /sales/summary?period=DAY|WEEK|MONTH|YEAR`
+`PUT /inventory/{id}`
 
-Headers:
+### Delete Medicine
 
-- `Authorization: Bearer <jwt>`
+`DELETE /inventory/{id}`
 
-Response (sample):
+### Low Stock Alert
 
-```json
-{
-  "period": "MONTH",
-  "from": "2026-04-01",
-  "to": "2026-04-30",
-  "saleCount": 14,
-  "totalSales": 25400.00,
-  "totalCost": 17320.00,
-  "totalProfit": 8080.00
-}
-```
+`GET /inventory/alerts/low-stock?threshold=10`
 
-## Create Prescription Sale
+### Expiry Alert
+
+`GET /inventory/alerts/expiry?days=30`
+
+## Billing and Transactions
+
+### Create Bill (Sale)
 
 `POST /sales`
 
-Headers:
-
-- `Authorization: Bearer <jwt>`
-
-Request (sample):
+Requires role: `ADMIN` or `BILLING`
 
 ```json
 {
   "customerName": "Nimal Perera",
   "customerPhone": "0771234567",
-  "discountAmount": 50.00,
+  "discountAmount": 0,
   "items": [
     {
       "medicineId": 1,
       "medicineName": "Paracetamol 500mg",
-      "quantity": 10,
-      "unitType": "tablets",
-      "pricePerUnit": 25.00
+      "quantity": 2,
+      "unitType": "tablet",
+      "pricePerUnit": 24.5,
+      "allowPriceOverride": true,
+      "dosageInstruction": "Oral - Take 1 tablet once daily after meals",
+      "customDosageInstruction": null,
+      "remark": "After dinner"
     }
   ]
 }
 ```
 
-Response includes full bill details with transaction ID and line totals.
+### Transaction History
 
-## Transaction History / Search
+`GET /sales?transactionId=&salesPerson=&fromDate=&toDate=`
 
-`GET /sales?transactionId=&fromDate=&toDate=`
+Requires role: `ADMIN` or `TRANSACTIONS`
 
-Headers:
-
-- `Authorization: Bearer <jwt>`
-
-Query params are optional and support date filtering (`YYYY-MM-DD`) and transaction ID search.
-
-## Get Bill by Transaction ID
+### Bill by Transaction ID
 
 `GET /sales/{transactionId}`
 
-Headers:
+Requires role: `ADMIN` or `TRANSACTIONS`
 
-- `Authorization: Bearer <jwt>`
+### Sales Summary
 
+`GET /sales/summary?period=DAY|WEEK|MONTH|YEAR`
+
+Requires role: `ADMIN` or `TRANSACTIONS`
+
+Response includes:
+- `saleCount`
+- `totalSales`
+- `totalCost`
+- `totalProfit`
+- `topSellingMedicines`
+- `salesByUser`
+
+## Files
+
+Requires role: `ADMIN`, `BILLING`, or `TRANSACTIONS`.
+
+- `POST /files/sales/{saleId}/receipt`
+- `POST /files/sales/{saleId}/prescription`
+- `GET /files/{fileId}/signed-url`
+- `GET /files/view/{fileId}?token=...` (public signed view)
+
+## AI Query
+
+Requires role: `ADMIN` or `TRANSACTIONS`.
+
+`POST /ai/query`
+
+## Health
+
+`GET /health`
+
+## Error Payload Format
+
+```json
+{
+  "timestamp": "2026-04-11T10:00:00Z",
+  "status": 400,
+  "error": "Bad Request",
+  "message": "quantity must be greater than 0",
+  "path": "/sales"
+}
+```
