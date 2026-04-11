@@ -190,6 +190,41 @@ Requires role: `ADMIN` or `TRANSACTIONS`.
 
 `POST /ai/query`
 
+## AI Assistant Chat
+
+Requires role: `ADMIN`, `BILLING`, `INVENTORY`, or `TRANSACTIONS`.
+
+`POST /ai/chat`
+
+```json
+{
+  "query": "Show profit for last 7 days",
+  "sessionId": "default-session",
+  "history": [
+    { "role": "user", "content": "Do we have Paracetamol?" },
+    { "role": "assistant", "content": "Yes, stock is available." }
+  ]
+}
+```
+
+Response (sample):
+
+```json
+{
+  "intent": "profit_analysis",
+  "answer": "Profit summary for the period is ...",
+  "quickActions": ["Show profit for last 7 days", "Start a new billing"],
+  "data": {
+    "from": "2026-04-05",
+    "to": "2026-04-11",
+    "saleCount": 12,
+    "revenue": 25100.0,
+    "cost": 17920.0,
+    "netProfit": 7180.0
+  }
+}
+```
+
 ## Health
 
 `GET /health`

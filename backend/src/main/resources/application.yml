@@ -1,6 +1,8 @@
 spring:
   application:
     name: pharmacy-inventory
+  config:
+    import: optional:file:../.env[.properties]
   datasource:
     url: jdbc:h2:mem:pharmacy;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
     driver-class-name: org.h2.Driver
@@ -27,6 +29,11 @@ app:
     expiration-ms: 300000
   cors:
     allowed-origin: http://localhost:5173
+  ai:
+    openrouter:
+      api-key: ${OPENROUTER_API_KEY:}
+      model: openai/gpt-4o-mini
+      endpoint: https://openrouter.ai/api/v1/chat/completions
 
 ---
 spring:

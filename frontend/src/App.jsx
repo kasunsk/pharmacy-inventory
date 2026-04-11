@@ -8,12 +8,14 @@ import BillingPage from './pages/BillingPage';
 import TransactionHistoryPage from './pages/TransactionHistoryPage';
 import SalesAnalyticsPage from './pages/SalesAnalyticsPage';
 import UserManagementPage from './pages/UserManagementPage';
+import AiAssistantPage from './pages/AiAssistantPage';
 
 const ACCESS = {
   BILLING: ['BILLING'],
   INVENTORY: ['INVENTORY'],
   TRANSACTIONS: ['TRANSACTIONS'],
-  ADMIN: ['ADMIN']
+  ADMIN: ['ADMIN'],
+  AI: ['BILLING', 'INVENTORY', 'TRANSACTIONS', 'ADMIN']
 };
 
 export default function App() {
@@ -45,6 +47,7 @@ export default function App() {
             {hasAnyRole(ACCESS.INVENTORY) && <NavLink to="/inventory">Inventory</NavLink>}
             {hasAnyRole(ACCESS.TRANSACTIONS) && <NavLink to="/transactions">Transaction History</NavLink>}
             {hasAnyRole(ACCESS.TRANSACTIONS) && <NavLink to="/sales-analytics">Sales Analytics</NavLink>}
+            {hasAnyRole(ACCESS.AI) && <NavLink to="/ai-assistant">AI Assistant</NavLink>}
             {hasAnyRole(ACCESS.ADMIN) && <NavLink to="/users">Users</NavLink>}
             <button type="button" className="ghost" onClick={logout}>Logout</button>
           </nav>
@@ -101,6 +104,14 @@ export default function App() {
             element={(
               <ProtectedRoute allowedRoles={ACCESS.ADMIN}>
                 <UserManagementPage />
+              </ProtectedRoute>
+            )}
+          />
+          <Route
+            path="/ai-assistant"
+            element={(
+              <ProtectedRoute allowedRoles={ACCESS.AI}>
+                <AiAssistantPage />
               </ProtectedRoute>
             )}
           />

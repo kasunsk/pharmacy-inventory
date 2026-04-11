@@ -203,3 +203,19 @@ export async function deleteEmployee(id) {
     throw await parseApiError(response, 'Failed to delete user.');
   }
 }
+
+export async function askAiAssistant(payload) {
+  const response = await fetch(`${API_BASE}/ai/chat`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...authHeaders()
+    },
+    body: JSON.stringify(payload)
+  });
+  if (!response.ok) {
+    throw await parseApiError(response, 'AI assistant is unavailable right now.');
+  }
+  return response.json();
+}
+

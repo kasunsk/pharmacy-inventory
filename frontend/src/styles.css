@@ -287,3 +287,47 @@ td select {
   max-width: 440px;
 }
 
+.ai-chat-shell {
+  display: grid;
+  gap: 10px;
+}
+
+.ai-quick-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ai-thread {
+  max-height: 420px;
+  overflow: auto;
+  padding: 8px;
+  border: 1px solid #d7e0ea;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.ai-msg {
+  margin-bottom: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid #d7e0ea;
+  background: #fff;
+}
+
+.ai-msg.user {
+  background: #eef4ff;
+}
+
+.ai-msg p {
+  margin: 4px 0 0;
+  white-space: pre-wrap;
+}
+
+.ai-input-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: end;
+}
+
