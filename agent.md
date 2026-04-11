@@ -1,96 +1,130 @@
 # AGENT.md
-# Sri Lanka Pharmacy Management System – AI Agent Guide
+# Sri Lanka Pharmacy Management System - AI Agent Guide
 
 ## Overview
-This project is a Pharmacy Management System designed for Sri Lanka.  
-It supports inventory management, sales tracking, receipt generation, prescription uploads, and AI-powered insights.
+This project is a Pharmacy Management System for Sri Lanka.
+
+Current implementation is a split monorepo:
+- `backend/`: Spring Boot (Gradle, Java 17)
+- `frontend/`: React + Vite
+
+It supports inventory, prescription-based sales, billing, transaction history, file upload, and analytics.
 
 ---
 
 ## User Roles
 
 ### Admin
-- Full access to the system
-- Manage employees (create/update/delete)
-- View all analytics (sales, profit, inventory)
-- Configure system settings
+- Full access
+- Manage employees
+- View all analytics (sales, cost, profit, inventory)
 
 ### Employer (Pharmacist / Staff)
-- Manage daily operations
-- Handle sales and receipts
-- Upload prescriptions
-- View limited analytics (daily sales, stock)
+- Handle daily operations
+- Create sales and bills
+- Manage inventory
+- View operational analytics
 
 ---
 
-## Authentication
-- Use JWT-based authentication
-- Implement Role-Based Access Control (RBAC)
-- Passwords must be hashed (e.g., BCrypt)
+## Authentication and Security
+- JWT-based login (`POST /auth/login`)
+- RBAC with roles: `ADMIN`, `EMPLOYER`
+- Password hashing with BCrypt
+
+Default seed user:
+- Username: `admin`
+- Password: `admin123`
 
 ---
 
-## Core Modules
+## Core Modules (Current State)
 
 ### Inventory Management
-- Add, update, delete medicines
-- Track:
-    - Name
-    - Batch number
-    - Expiry date
-    - Supplier
-    - Purchase price
-    - Selling price
-    - Quantity
-- Features:
-    - Low stock alerts
-    - Expiry alerts
+- Create, update, delete medicines
+- Track medicine name, batch, expiry, supplier, purchase/selling prices, quantity
+- Alerts:
+  - Low stock
+  - Upcoming expiry
+
+### Prescription-Based Sales and Billing
+- Create one sale with multiple medicine lines
+- Each line captures:
+  - Medicine
+  - Quantity
+  - Unit type (tablets, capsules, bottle, etc.)
+  - Price per unit
+- Auto line total and overall totals
+- Optional customer details (name, phone)
+- Stock validation before checkout
+- Automatic inventory deduction after successful sale
+- Prevent sale on insufficient stock with clear error message
+
+### Transaction Records and Retrieval
+- Every sale is saved with unique `transactionId`
+- Transaction includes date/time, items, and totals
+- History retrieval:
+  - Search by transaction ID
+  - Filter by date range
+- Open a past transaction and view full bill
+
+### Sales Analytics
+- Summary endpoint supports period views:
+  - `DAY`, `WEEK`, `MONTH`, `YEAR`
+- Metrics:
+  - Total sales
+  - Total cost
+  - Total profit
+  - Sale count
+
+### Files (Receipt/Prescription)
+- Upload and store receipt/prescription files linked to sales
+- View via signed URL endpoint
 
 ---
 
-### Sales Management
-- Create sales transactions
-- Select medicines from inventory
-- Auto-calculate:
-    - Total price
-    - Discounts
-- Deduct stock automatically
+## API Highlights
+- `POST /auth/login`
+- `GET /inventory`
+- `GET /inventory/{id}`
+- `POST /sales`
+- `GET /sales?transactionId=&fromDate=&toDate=`
+- `GET /sales/{transactionId}`
+- `GET /sales/summary?period=DAY|WEEK|MONTH|YEAR`
+
+Detailed API examples are in `docs/api.md`.
 
 ---
 
-### Receipt Management
-- Generate digital receipts
-- Include:
-    - Date & time
-    - Items
-    - Quantity & price
-    - Total amount
-- Export as PDF / print-ready format
-
----
-
-### Prescription Upload
-- Upload image or PDF
-- Link to a sale
-- Store securely
-- Optional: OCR (future enhancement)
+## Frontend UX Highlights
+- Inventory page with create/search/view flow
+- Prescription Sales page with fast multi-line billing
+- Immediate bill display after sale
+- Transaction history and bill reopening
+- Print-ready bill from browser print
+- Sales Analytics dashboard for day/week/month/year
 
 ---
 
 ## AI Assistant Integration
+Purpose: natural language queries over pharmacy operations.
 
-### Purpose
-Provide a natural language interface to query pharmacy data.
-
-### Example Queries
-- "What medicines are low in stock?"
-- "What is today's total sales?"
-- "Show daily profit"
-- "Do we have Paracetamol?"
-- "Which medicine is selling the most?"
+Supported intent examples:
+- Low stock medicines
+- Today's sales
+- Top-selling medicine
+- Availability checks by medicine name
 
 ---
 
-## OpenRouter Configuration
+## Environment Configuration
+- OpenRouter key stored in `.env`:
+  - `OPENROUTER_API_KEY=...`
 
-API key is stored in `.env` file:
+---
+
+## Future Enhancements
+- OCR for prescriptions
+- PDF-rendered bills/receipts
+- Richer dashboards and trend charts
+- Stronger production file storage strategy
