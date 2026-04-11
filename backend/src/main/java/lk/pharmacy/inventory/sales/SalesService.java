@@ -61,11 +61,32 @@ public class SalesService {
                 throw new ApiException("Insufficient stock for medicine: " + medicine.getName());
             }
 
-            BigDecimal pricePerUnit = itemRequest.pricePerUnit() == null
-                    ? medicine.getSellingPrice()
-                    : itemRequest.pricePerUnit();
+            boolean allowOverride = Boolean.TRUE.equals(itemRequest.allowPriceOverride());
+            BigDecimal inventoryPrice = medicine.getSellingPrice();
+            BigDecimal requestedPrice = itemRequest.pricePerUnit();
+            BigDecimal pricePerUnit;
+            if (allowOverride) {
+                if (requestedPrice == null) {
+                    throw new ApiException("Price per unit is required when override is enabled");
+                }
+                pricePerUnit = requestedPrice;
+            } else {
+                if (requestedPrice != null && requestedPrice.compareTo(inventoryPrice) != 0) {
+                    throw new ApiException("Manual price override is not allowed");
+                }
+                pricePerUnit = inventoryPrice;
+            }
             if (pricePerUnit.compareTo(BigDecimal.ZERO) < 0) {
                 throw new ApiException("Price per unit cannot be negative");
+            }
+
+            String dosageInstruction = trimToNull(itemRequest.dosageInstruction());
+            if (dosageInstruction == null) {
+                throw new ApiException("Dosage instruction is required");
+            }
+            String customDosageInstruction = trimToNull(itemRequest.customDosageInstruction());
+            if ("CUSTOM".equalsIgnoreCase(dosageInstruction) && customDosageInstruction == null) {
+                throw new ApiException("Custom dosage instruction is required when CUSTOM is selected");
             }
 
             medicine.setQuantity(medicine.getQuantity() - itemRequest.quantity());
@@ -84,6 +105,9 @@ public class SalesService {
             );
             saleItem.setQuantity(itemRequest.quantity());
             saleItem.setUnitType(itemRequest.unitType().trim());
+            saleItem.setDosageInstruction(dosageInstruction);
+            saleItem.setCustomDosageInstruction(customDosageInstruction);
+            saleItem.setRemark(trimToNull(itemRequest.remark()));
             saleItem.setUnitPrice(pricePerUnit);
             saleItem.setUnitCost(medicine.getPurchasePrice());
             saleItem.setLineTotal(lineTotal);
@@ -108,7 +132,7 @@ public class SalesService {
     }
 
     @Transactional(readOnly = true)
-    public List<SaleTransactionSummaryResponse> findTransactions(String transactionId, LocalDate fromDate, LocalDate toDate) {
+    public List<SaleTransactionSummaryResponse> findTransactions(String transactionId, String salesPerson, LocalDate fromDate, LocalDate toDate) {
         Instant start = fromDate == null
                 ? Instant.EPOCH
                 : fromDate.atStartOfDay(ZoneId.systemDefault()).toInstant();
@@ -117,14 +141,33 @@ public class SalesService {
                 : toDate.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant();
 
         String tx = trimToNull(transactionId);
-        List<Sale> sales = tx == null
-                ? saleRepository.findByCreatedAtBetweenOrderByCreatedAtDesc(start, end)
-                : saleRepository.findByTransactionIdContainingIgnoreCaseAndCreatedAtBetweenOrderByCreatedAtDesc(tx, start, end);
+        String username = trimToNull(salesPerson);
+        List<Sale> sales;
+        if (tx == null && username == null) {
+            sales = saleRepository.findByCreatedAtBetweenOrderByCreatedAtDesc(start, end);
+        } else if (tx == null) {
+            sales = saleRepository.findByCreatedAtBetweenAndCreatedBy_UsernameContainingIgnoreCaseOrderByCreatedAtDesc(start, end, username);
+        } else if (username == null) {
+            sales = saleRepository.findByTransactionIdContainingIgnoreCaseAndCreatedAtBetweenOrderByCreatedAtDesc(tx, start, end);
+        } else {
+            sales = saleRepository
+                    .findByTransactionIdContainingIgnoreCaseAndCreatedAtBetweenAndCreatedBy_UsernameContainingIgnoreCaseOrderByCreatedAtDesc(
+                            tx,
+                            start,
+                            end,
+                            username
+                    );
+        }
 
         return sales.stream().map(sale -> new SaleTransactionSummaryResponse(
                 sale.getTransactionId(),
                 sale.getCreatedAt(),
+                sale.getCreatedBy().getUsername(),
                 sale.getCustomerName(),
+                sale.getItems().stream()
+                        .map(SaleItem::getMedicineNameSnapshot)
+                        .distinct()
+                        .toList(),
                 sale.getTotalAfterDiscount(),
                 sale.getItems().size()
         )).toList();
@@ -179,7 +222,21 @@ public class SalesService {
                 saleCount,
                 totalSales,
                 totalCost,
-                totalSales.subtract(totalCost)
+                totalSales.subtract(totalCost),
+                saleItemRepository.findTopSellingBetween(start, end).stream()
+                        .limit(5)
+                        .map(row -> new TopMedicineSales(
+                                String.valueOf(row[0]),
+                                ((Number) row[1]).longValue()
+                        ))
+                        .toList(),
+                saleRepository.summarizeSalesByUser(start, end).stream()
+                        .map(row -> new UserSalesSummary(
+                                String.valueOf(row[0]),
+                                ((Number) row[1]).longValue(),
+                                (BigDecimal) row[2]
+                        ))
+                        .toList()
         );
     }
 
@@ -187,12 +244,16 @@ public class SalesService {
         return new SaleBillResponse(
                 sale.getTransactionId(),
                 sale.getCreatedAt(),
+                sale.getCreatedBy().getUsername(),
                 sale.getCustomerName(),
                 sale.getCustomerPhone(),
                 sale.getItems().stream().map(item -> new SaleBillItemResponse(
                         item.getMedicineNameSnapshot(),
                         item.getQuantity(),
                         item.getUnitType(),
+                        item.getDosageInstruction(),
+                        item.getCustomDosageInstruction(),
+                        item.getRemark(),
                         item.getUnitPrice(),
                         item.getLineTotal()
                 )).toList(),

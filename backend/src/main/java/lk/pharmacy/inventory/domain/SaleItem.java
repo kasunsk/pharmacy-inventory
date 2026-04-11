@@ -30,6 +30,15 @@ public class SaleItem {
     @Column(nullable = false)
     private String unitType;
 
+    @Column
+    private String dosageInstruction;
+
+    @Column
+    private String customDosageInstruction;
+
+    @Column
+    private String remark;
+
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal unitPrice;
 
@@ -84,6 +93,30 @@ public class SaleItem {
 
     public void setUnitType(String unitType) {
         this.unitType = unitType;
+    }
+
+    public String getDosageInstruction() {
+        return dosageInstruction;
+    }
+
+    public void setDosageInstruction(String dosageInstruction) {
+        this.dosageInstruction = dosageInstruction;
+    }
+
+    public String getCustomDosageInstruction() {
+        return customDosageInstruction;
+    }
+
+    public void setCustomDosageInstruction(String customDosageInstruction) {
+        this.customDosageInstruction = customDosageInstruction;
+    }
+
+    public String getRemark() {
+        return remark;
+    }
+
+    public void setRemark(String remark) {
+        this.remark = remark;
     }
 
     public BigDecimal getUnitPrice() {

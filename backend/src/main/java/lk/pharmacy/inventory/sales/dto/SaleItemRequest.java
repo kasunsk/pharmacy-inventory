@@ -11,7 +11,11 @@ public record SaleItemRequest(
         String medicineName,
         @Min(1) int quantity,
         @NotBlank String unitType,
-        BigDecimal pricePerUnit
+        BigDecimal pricePerUnit,
+        Boolean allowPriceOverride,
+        String dosageInstruction,
+        String customDosageInstruction,
+        String remark
 ) {
 }
 

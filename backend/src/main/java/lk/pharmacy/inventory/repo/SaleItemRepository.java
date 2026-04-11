@@ -13,6 +13,15 @@ public interface SaleItemRepository extends JpaRepository<SaleItem, Long> {
     @Query("select si.medicineNameSnapshot, sum(si.quantity) from SaleItem si group by si.medicineNameSnapshot order by sum(si.quantity) desc")
     List<Object[]> findTopSelling();
 
+    @Query("""
+            select si.medicineNameSnapshot, sum(si.quantity)
+            from SaleItem si
+            where si.sale.createdAt between :start and :end
+            group by si.medicineNameSnapshot
+            order by sum(si.quantity) desc
+            """)
+    List<Object[]> findTopSellingBetween(Instant start, Instant end);
+
     @Query("select coalesce(sum(si.lineCost), 0) from SaleItem si where si.sale.createdAt between :start and :end")
     BigDecimal sumCostBetween(Instant start, Instant end);
 }

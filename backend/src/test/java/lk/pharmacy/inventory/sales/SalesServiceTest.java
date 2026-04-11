@@ -3,6 +3,7 @@ package lk.pharmacy.inventory.sales;
 import lk.pharmacy.inventory.domain.Medicine;
 import lk.pharmacy.inventory.domain.Role;
 import lk.pharmacy.inventory.domain.User;
+import lk.pharmacy.inventory.exception.ApiException;
 import lk.pharmacy.inventory.repo.MedicineRepository;
 import lk.pharmacy.inventory.repo.UserRepository;
 import lk.pharmacy.inventory.sales.dto.CreateSaleRequest;
@@ -23,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Set;
 
 @SpringBootTest
 @Transactional
@@ -50,7 +52,7 @@ class SalesServiceTest {
         User employer = new User();
         employer.setUsername("staff1");
         employer.setPasswordHash(passwordEncoder.encode("pass123"));
-        employer.setRole(Role.EMPLOYER);
+        employer.setRoles(Set.of(Role.BILLING));
         userRepository.save(employer);
 
         Medicine med = new Medicine();
@@ -68,7 +70,7 @@ class SalesServiceTest {
         );
 
         CreateSaleRequest request = new CreateSaleRequest(
-                List.of(new SaleItemRequest(med.getId(), med.getName(), 2, "tablets", null)),
+                List.of(new SaleItemRequest(med.getId(), med.getName(), 2, "tablets", null, false, "1 tablet per day (morning)", null, null)),
                 new BigDecimal("10.00"),
                 "Kamal",
                 "0771234567"
@@ -79,6 +81,7 @@ class SalesServiceTest {
         Assertions.assertEquals(new BigDecimal("60.00"), sale.totalBeforeDiscount());
         Assertions.assertEquals(new BigDecimal("50.00"), sale.totalAmount());
         Assertions.assertEquals("tablets", sale.items().get(0).unitType());
+        Assertions.assertEquals("1 tablet per day (morning)", sale.items().get(0).dosageInstruction());
         Assertions.assertEquals(98, medicineRepository.findById(med.getId()).orElseThrow().getQuantity());
     }
 
@@ -87,7 +90,7 @@ class SalesServiceTest {
         User employer = new User();
         employer.setUsername("staff2");
         employer.setPasswordHash(passwordEncoder.encode("pass123"));
-        employer.setRole(Role.EMPLOYER);
+        employer.setRoles(Set.of(Role.BILLING));
         userRepository.save(employer);
 
         Medicine med = new Medicine();
@@ -105,7 +108,7 @@ class SalesServiceTest {
         );
 
         salesService.createSale(new CreateSaleRequest(
-                List.of(new SaleItemRequest(med.getId(), med.getName(), 2, "capsules", null)),
+                List.of(new SaleItemRequest(med.getId(), med.getName(), 2, "capsules", null, false, "2 tablets per day (morning and evening after food)", null, null)),
                 new BigDecimal("20.00"),
                 null,
                 null
@@ -117,6 +120,40 @@ class SalesServiceTest {
         Assertions.assertEquals(new BigDecimal("140.00"), summary.totalSales());
         Assertions.assertEquals(new BigDecimal("100.00"), summary.totalCost());
         Assertions.assertEquals(new BigDecimal("40.00"), summary.totalProfit());
+    }
+
+    @Test
+    void shouldRejectManualPriceOverrideWhenNotAllowed() {
+        User employer = new User();
+        employer.setUsername("staff3");
+        employer.setPasswordHash(passwordEncoder.encode("pass123"));
+        employer.setRoles(Set.of(Role.BILLING));
+        userRepository.save(employer);
+
+        Medicine med = new Medicine();
+        med.setName("Ibuprofen");
+        med.setBatchNumber("B099");
+        med.setExpiryDate(LocalDate.now().plusMonths(10));
+        med.setSupplier("ABC Pharma");
+        med.setPurchasePrice(new BigDecimal("30.00"));
+        med.setSellingPrice(new BigDecimal("45.00"));
+        med.setQuantity(30);
+        medicineRepository.save(med);
+
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken("staff3", null, List.of())
+        );
+
+        ApiException ex = Assertions.assertThrows(ApiException.class, () ->
+                salesService.createSale(new CreateSaleRequest(
+                        List.of(new SaleItemRequest(med.getId(), med.getName(), 1, "tablets", new BigDecimal("40.00"), false, "1 tablet per day (morning)", null, null)),
+                        BigDecimal.ZERO,
+                        null,
+                        null
+                ))
+        );
+
+        Assertions.assertTrue(ex.getMessage().contains("not allowed"));
     }
 }
 

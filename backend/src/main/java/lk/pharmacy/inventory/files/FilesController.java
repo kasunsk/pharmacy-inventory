@@ -22,21 +22,21 @@ public class FilesController {
     }
 
     @PostMapping("/sales/{saleId}/receipt")
-    @PreAuthorize("hasAnyRole('ADMIN','EMPLOYER')")
+    @PreAuthorize("hasAnyRole('ADMIN','BILLING','TRANSACTIONS')")
     public Map<String, Object> uploadReceipt(@PathVariable Long saleId,
                                              @RequestParam("file") MultipartFile file) {
         return fileService.upload(saleId, FileKind.RECEIPT, file);
     }
 
     @PostMapping("/sales/{saleId}/prescription")
-    @PreAuthorize("hasAnyRole('ADMIN','EMPLOYER')")
+    @PreAuthorize("hasAnyRole('ADMIN','BILLING','TRANSACTIONS')")
     public Map<String, Object> uploadPrescription(@PathVariable Long saleId,
                                                   @RequestParam("file") MultipartFile file) {
         return fileService.upload(saleId, FileKind.PRESCRIPTION, file);
     }
 
     @GetMapping("/{fileId}/signed-url")
-    @PreAuthorize("hasAnyRole('ADMIN','EMPLOYER')")
+    @PreAuthorize("hasAnyRole('ADMIN','BILLING','TRANSACTIONS')")
     public Map<String, String> signedUrl(@PathVariable Long fileId) {
         return fileService.createSignedViewUrl(fileId);
     }

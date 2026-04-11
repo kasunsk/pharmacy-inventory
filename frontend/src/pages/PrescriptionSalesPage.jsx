@@ -10,12 +10,37 @@ function money(value) {
   return Number(value || 0).toFixed(2);
 }
 
+const UNIT_TYPES = [
+  'tablet',
+  'card',
+  'box',
+  'capsule',
+  '50 ml bottle',
+  '100 ml bottle',
+  'syrup bottle',
+  'tube',
+  'vial'
+];
+
+const DOSAGE_OPTIONS = [
+  '1 tablet per day (morning)',
+  '1 tablet per day (evening after food)',
+  '2 tablets per day (morning and evening after food)',
+  '3 times a day (after meals)',
+  'Apply externally twice a day',
+  'Use as needed',
+  'CUSTOM'
+];
+
 function emptyLine() {
   return {
     medicineId: '',
     quantity: 1,
-    unitType: 'tablets',
-    pricePerUnit: ''
+    unitType: 'tablet',
+    pricePerUnit: '',
+    allowPriceOverride: false,
+    dosageInstruction: DOSAGE_OPTIONS[0],
+    customDosageInstruction: ''
   };
 }
 
@@ -41,6 +66,19 @@ export default function PrescriptionSalesPage() {
   const inventoryById = useMemo(() => {
     return new Map(inventory.map((item) => [String(item.id), item]));
   }, [inventory]);
+
+  const normalizedLines = useMemo(() => {
+    return lines.map((line) => {
+      const quantity = Number(line.quantity || 0);
+      const pricePerUnit = Number(line.pricePerUnit || 0);
+      return {
+        ...line,
+        quantity,
+        pricePerUnit,
+        lineTotal: quantity * pricePerUnit
+      };
+    });
+  }, [lines]);
 
   useEffect(() => {
     loadInventory();
@@ -73,11 +111,24 @@ export default function PrescriptionSalesPage() {
     const next = [...lines];
     next[index] = { ...next[index], ...patch };
 
-    if (patch.medicineId) {
-      const selected = inventoryById.get(String(patch.medicineId));
-      if (selected && (next[index].pricePerUnit === '' || next[index].pricePerUnit == null)) {
+    if (patch.medicineId !== undefined) {
+      const selected = inventoryById.get(String(next[index].medicineId));
+      if (selected) {
+        next[index].pricePerUnit = selected.sellingPrice;
+      } else {
+        next[index].pricePerUnit = '';
+      }
+    }
+
+    if (patch.allowPriceOverride === false) {
+      const selected = inventoryById.get(String(next[index].medicineId));
+      if (selected) {
         next[index].pricePerUnit = selected.sellingPrice;
       }
+    }
+
+    if (patch.dosageInstruction && patch.dosageInstruction !== 'CUSTOM') {
+      next[index].customDosageInstruction = '';
     }
 
     setLines(next);
@@ -94,21 +145,53 @@ export default function PrescriptionSalesPage() {
     setLines(lines.filter((_, i) => i !== index));
   }
 
-  const estimatedTotal = lines.reduce((acc, line) => {
-    const qty = Number(line.quantity || 0);
-    const unit = Number(line.pricePerUnit || 0);
-    return acc + qty * unit;
+  const estimatedTotal = normalizedLines.reduce((acc, line) => {
+    return acc + line.lineTotal;
   }, 0);
+
+  const discountValue = Number(discountAmount || 0);
+  const finalTotal = Math.max(estimatedTotal - discountValue, 0);
+
+  function validateBeforeSubmit() {
+    for (let i = 0; i < lines.length; i += 1) {
+      const line = lines[i];
+      if (!line.medicineId) {
+        throw new Error(`Line ${i + 1}: medicine is required.`);
+      }
+      if (Number(line.quantity) <= 0) {
+        throw new Error(`Line ${i + 1}: quantity must be greater than zero.`);
+      }
+      if (!line.unitType) {
+        throw new Error(`Line ${i + 1}: unit type is required.`);
+      }
+      if (line.allowPriceOverride && Number(line.pricePerUnit) < 0) {
+        throw new Error(`Line ${i + 1}: price per unit cannot be negative.`);
+      }
+      if (!line.dosageInstruction) {
+        throw new Error(`Line ${i + 1}: dosage instruction is required.`);
+      }
+      if (line.dosageInstruction === 'CUSTOM' && !line.customDosageInstruction.trim()) {
+        throw new Error(`Line ${i + 1}: custom dosage instruction is required.`);
+      }
+    }
+    if (discountValue < 0) {
+      throw new Error('Discount cannot be negative.');
+    }
+    if (discountValue > estimatedTotal) {
+      throw new Error('Discount cannot exceed subtotal.');
+    }
+  }
 
   async function submitSale(event) {
     event.preventDefault();
     setSaving(true);
     setError('');
     try {
+      validateBeforeSubmit();
       const payload = {
         customerName: customerName || null,
         customerPhone: customerPhone || null,
-        discountAmount: Number(discountAmount || 0),
+        discountAmount: discountValue,
         items: lines.map((line) => {
           const selected = inventoryById.get(String(line.medicineId));
           return {
@@ -116,7 +199,12 @@ export default function PrescriptionSalesPage() {
             medicineName: selected?.name || '',
             quantity: Number(line.quantity),
             unitType: line.unitType,
-            pricePerUnit: Number(line.pricePerUnit)
+            pricePerUnit: Number(line.pricePerUnit),
+            allowPriceOverride: Boolean(line.allowPriceOverride),
+            dosageInstruction: line.dosageInstruction,
+            customDosageInstruction: line.dosageInstruction === 'CUSTOM'
+              ? line.customDosageInstruction.trim()
+              : null
           };
         })
       };
@@ -163,53 +251,111 @@ export default function PrescriptionSalesPage() {
           <input value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} />
         </label>
 
-        <div className="line-items">
-          {lines.map((line, index) => (
-            <div key={index} className="line-item-row">
-              <select
-                required
-                value={line.medicineId}
-                onChange={(e) => updateLine(index, { medicineId: e.target.value })}
-              >
-                <option value="">Select medicine</option>
-                {inventory.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name} (stock: {item.quantity})
-                  </option>
-                ))}
-              </select>
-
-              <input
-                type="number"
-                min="1"
-                required
-                value={line.quantity}
-                onChange={(e) => updateLine(index, { quantity: e.target.value })}
-                placeholder="Qty"
-              />
-
-              <input
-                required
-                value={line.unitType}
-                onChange={(e) => updateLine(index, { unitType: e.target.value })}
-                placeholder="Unit type"
-              />
-
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                required
-                value={line.pricePerUnit}
-                onChange={(e) => updateLine(index, { pricePerUnit: e.target.value })}
-                placeholder="Price/unit"
-              />
-
-              <button type="button" onClick={() => removeLine(index)}>
-                Remove
-              </button>
-            </div>
-          ))}
+        <div className="table-wrap entry-table-wrap">
+          <table className="entry-table">
+            <thead>
+              <tr>
+                <th>Medicine name</th>
+                <th>Unit type</th>
+                <th>Quantity</th>
+                <th>Price / unit</th>
+                <th>Total / item</th>
+                <th>Dosage instruction</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {normalizedLines.map((line, index) => {
+                const selected = inventoryById.get(String(line.medicineId));
+                return (
+                  <tr key={index}>
+                    <td>
+                      <select
+                        required
+                        value={line.medicineId}
+                        onChange={(e) => updateLine(index, { medicineId: e.target.value })}
+                      >
+                        <option value="">Select medicine</option>
+                        {inventory.map((item) => (
+                          <option key={item.id} value={item.id}>
+                            {item.name} (stock: {item.quantity})
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td>
+                      <select
+                        required
+                        value={line.unitType}
+                        onChange={(e) => updateLine(index, { unitType: e.target.value })}
+                      >
+                        {UNIT_TYPES.map((unit) => (
+                          <option key={unit} value={unit}>{unit}</option>
+                        ))}
+                      </select>
+                    </td>
+                    <td>
+                      <input
+                        type="number"
+                        min="1"
+                        required
+                        value={line.quantity}
+                        onChange={(e) => updateLine(index, { quantity: e.target.value })}
+                      />
+                    </td>
+                    <td>
+                      <div className="price-cell">
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          required
+                          value={line.pricePerUnit}
+                          disabled={!line.allowPriceOverride}
+                          onChange={(e) => updateLine(index, { pricePerUnit: e.target.value })}
+                        />
+                        <label className="inline-check">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(line.allowPriceOverride)}
+                            onChange={(e) => updateLine(index, { allowPriceOverride: e.target.checked })}
+                          />
+                          Allow override
+                        </label>
+                        {!line.allowPriceOverride && selected && (
+                          <small>Auto from inventory: {money(selected.sellingPrice)}</small>
+                        )}
+                      </div>
+                    </td>
+                    <td className="item-total">{money(line.lineTotal)}</td>
+                    <td>
+                      <select
+                        value={line.dosageInstruction}
+                        onChange={(e) => updateLine(index, { dosageInstruction: e.target.value })}
+                      >
+                        {DOSAGE_OPTIONS.map((item) => (
+                          <option key={item} value={item}>{item}</option>
+                        ))}
+                      </select>
+                      {line.dosageInstruction === 'CUSTOM' && (
+                        <input
+                          required
+                          placeholder="Enter custom dosage"
+                          value={line.customDosageInstruction}
+                          onChange={(e) => updateLine(index, { customDosageInstruction: e.target.value })}
+                        />
+                      )}
+                    </td>
+                    <td>
+                      <button type="button" onClick={() => removeLine(index)}>
+                        Remove
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
 
         <div className="toolbar">
@@ -224,7 +370,8 @@ export default function PrescriptionSalesPage() {
               onChange={(e) => setDiscountAmount(e.target.value)}
             />
           </label>
-          <strong>Estimated: {money(estimatedTotal)}</strong>
+          <strong>Subtotal: {money(estimatedTotal)}</strong>
+          <strong>Final Total: {money(finalTotal)}</strong>
         </div>
 
         <button type="submit" disabled={saving || loading}>
@@ -246,6 +393,7 @@ export default function PrescriptionSalesPage() {
                   <th>Medicine</th>
                   <th>Qty</th>
                   <th>Unit</th>
+                  <th>Dosage</th>
                   <th>Price/Unit</th>
                   <th>Line Total</th>
                 </tr>
@@ -256,6 +404,11 @@ export default function PrescriptionSalesPage() {
                     <td>{item.medicineName}</td>
                     <td>{item.quantity}</td>
                     <td>{item.unitType}</td>
+                    <td>
+                      {item.dosageInstruction === 'CUSTOM'
+                        ? item.customDosageInstruction
+                        : item.dosageInstruction}
+                    </td>
                     <td>{money(item.pricePerUnit)}</td>
                     <td>{money(item.lineTotal)}</td>
                   </tr>

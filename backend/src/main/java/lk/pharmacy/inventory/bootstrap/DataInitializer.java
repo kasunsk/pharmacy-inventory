@@ -12,6 +12,7 @@ import org.springframework.stereotype.Component;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Set;
 
 @Component
 public class DataInitializer implements CommandLineRunner {
@@ -30,21 +31,26 @@ public class DataInitializer implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        if (!userRepository.existsByUsername("admin")) {
+        userRepository.findByUsername("admin").ifPresentOrElse(existing -> {
+            if (existing.getRoles() == null || existing.getRoles().isEmpty()) {
+                existing.setRoles(Set.of(Role.ADMIN));
+                userRepository.save(existing);
+            }
+        }, () -> {
             User user = new User();
             user.setUsername("admin");
             user.setPasswordHash(passwordEncoder.encode("admin123"));
-            user.setRole(Role.ADMIN);
+            user.setRoles(Set.of(Role.ADMIN));
             userRepository.save(user);
-        }
+        });
 
         if (medicineRepository.count() == 0) {
             medicineRepository.saveAll(List.of(
-                    medicine("Paracetamol 500mg", "SL-PARA-001", LocalDate.now().plusMonths(18), "Hemas Pharma", "18.00", "25.00", 220),
-                    medicine("Amoxicillin 500mg", "SL-AMOX-002", LocalDate.now().plusMonths(14), "Cipla Lanka", "42.00", "60.00", 140),
-                    medicine("Cetirizine 10mg", "SL-CETI-003", LocalDate.now().plusMonths(20), "State Pharma", "12.00", "20.00", 180),
-                    medicine("Metformin 500mg", "SL-METF-004", LocalDate.now().plusMonths(16), "Sun Pharma", "24.00", "35.00", 160),
-                    medicine("ORS Sachet", "SL-ORS-005", LocalDate.now().plusMonths(10), "GSK Sri Lanka", "28.00", "40.00", 95)
+                    medicine("Paracetamol 500mg", "SL-PARA-001", LocalDate.now().plusMonths(18), "Hemas Pharma", "tablet", "18.00", "25.00", 220),
+                    medicine("Amoxicillin 500mg", "SL-AMOX-002", LocalDate.now().plusMonths(14), "Cipla Lanka", "capsule", "42.00", "60.00", 140),
+                    medicine("Cetirizine 10mg", "SL-CETI-003", LocalDate.now().plusMonths(20), "State Pharma", "tablet", "12.00", "20.00", 180),
+                    medicine("Metformin 500mg", "SL-METF-004", LocalDate.now().plusMonths(16), "Sun Pharma", "tablet", "24.00", "35.00", 160),
+                    medicine("ORS Sachet", "SL-ORS-005", LocalDate.now().plusMonths(10), "GSK Sri Lanka", "sachet", "28.00", "40.00", 95)
             ));
         }
     }
@@ -53,6 +59,7 @@ public class DataInitializer implements CommandLineRunner {
                               String batch,
                               LocalDate expiry,
                               String supplier,
+                              String unitType,
                               String purchase,
                               String selling,
                               int quantity) {
@@ -61,6 +68,7 @@ public class DataInitializer implements CommandLineRunner {
         medicine.setBatchNumber(batch);
         medicine.setExpiryDate(expiry);
         medicine.setSupplier(supplier);
+        medicine.setUnitType(unitType);
         medicine.setPurchasePrice(new BigDecimal(purchase));
         medicine.setSellingPrice(new BigDecimal(selling));
         medicine.setQuantity(quantity);

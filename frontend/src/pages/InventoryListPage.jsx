@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { createMedicine, fetchInventory, login } from '../api';
+import { createMedicine, fetchInventory } from '../api';
+
+const UNIT_TYPES = ['tablet', 'capsule', 'box', 'card', 'bottle', 'sachet', 'tube', 'vial'];
 
 export default function InventoryListPage() {
-  const [username, setUsername] = useState('admin');
-  const [password, setPassword] = useState('admin123');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [inventory, setInventory] = useState([]);
@@ -14,6 +14,7 @@ export default function InventoryListPage() {
     batchNumber: '',
     expiryDate: '',
     supplier: '',
+    unitType: 'tablet',
     purchasePrice: '',
     sellingPrice: '',
     quantity: ''
@@ -25,32 +26,15 @@ export default function InventoryListPage() {
       return inventory;
     }
     return inventory.filter((item) =>
-      [item.name, item.batchNumber, item.supplier].some((v) =>
-        String(v || '').toLowerCase().includes(value)
+      [item.name, item.batchNumber, item.supplier].some((part) =>
+        String(part || '').toLowerCase().includes(value)
       )
     );
   }, [inventory, filter]);
 
   useEffect(() => {
-    if (localStorage.getItem('token')) {
-      loadInventory();
-    }
+    loadInventory();
   }, []);
-
-  async function handleLogin(event) {
-    event.preventDefault();
-    setLoading(true);
-    setError('');
-    try {
-      const data = await login(username, password);
-      localStorage.setItem('token', data.token);
-      await loadInventory();
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setLoading(false);
-    }
-  }
 
   async function loadInventory() {
     setLoading(true);
@@ -81,6 +65,7 @@ export default function InventoryListPage() {
         batchNumber: '',
         expiryDate: '',
         supplier: '',
+        unitType: 'tablet',
         purchasePrice: '',
         sellingPrice: '',
         quantity: ''
@@ -95,155 +80,160 @@ export default function InventoryListPage() {
 
   return (
     <section>
-      <h2>Inventory</h2>
-
-      {!localStorage.getItem('token') && (
-        <form className="card" onSubmit={handleLogin}>
-          <h3>Login</h3>
-          <label>
-            Username
-            <input value={username} onChange={(e) => setUsername(e.target.value)} />
-          </label>
-          <label>
-            Password
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </label>
-          <button type="submit" disabled={loading}>
-            {loading ? 'Signing in...' : 'Sign in'}
-          </button>
-        </form>
-      )}
-
-      {localStorage.getItem('token') && (
-        <>
-          <div className="toolbar">
-            <input
-              placeholder="Search by name, batch, supplier"
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-            />
-            <button onClick={loadInventory} disabled={loading}>
-              Refresh
-            </button>
-            <button
-              onClick={() => {
-                localStorage.removeItem('token');
-                setInventory([]);
-              }}
-            >
-              Logout
-            </button>
-          </div>
-
-          <form className="card create-card" onSubmit={handleCreate}>
-            <h3>Add Inventory Record</h3>
-            <label>
-              Medicine Name
-              <input
-                required
-                value={createForm.name}
-                onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
-              />
-            </label>
-            <label>
-              Batch Number
-              <input
-                required
-                value={createForm.batchNumber}
-                onChange={(e) => setCreateForm({ ...createForm, batchNumber: e.target.value })}
-              />
-            </label>
-            <label>
-              Expiry Date
-              <input
-                required
-                type="date"
-                value={createForm.expiryDate}
-                onChange={(e) => setCreateForm({ ...createForm, expiryDate: e.target.value })}
-              />
-            </label>
-            <label>
-              Supplier
-              <input
-                required
-                value={createForm.supplier}
-                onChange={(e) => setCreateForm({ ...createForm, supplier: e.target.value })}
-              />
-            </label>
-            <label>
-              Purchase Price
-              <input
-                required
-                type="number"
-                step="0.01"
-                min="0"
-                value={createForm.purchasePrice}
-                onChange={(e) => setCreateForm({ ...createForm, purchasePrice: e.target.value })}
-              />
-            </label>
-            <label>
-              Selling Price
-              <input
-                required
-                type="number"
-                step="0.01"
-                min="0"
-                value={createForm.sellingPrice}
-                onChange={(e) => setCreateForm({ ...createForm, sellingPrice: e.target.value })}
-              />
-            </label>
-            <label>
-              Quantity
-              <input
-                required
-                type="number"
-                min="0"
-                value={createForm.quantity}
-                onChange={(e) => setCreateForm({ ...createForm, quantity: e.target.value })}
-              />
-            </label>
-            <button type="submit" disabled={loading}>
-              {loading ? 'Saving...' : 'Add Medicine'}
-            </button>
-          </form>
-        </>
-      )}
+      <div className="page-title-row">
+        <div>
+          <h2>Inventory</h2>
+          <p>Compact, row-based stock management for quick and accurate updates.</p>
+        </div>
+        <button type="button" onClick={loadInventory} disabled={loading}>
+          {loading ? 'Refreshing...' : 'Refresh'}
+        </button>
+      </div>
 
       {error && <p className="error">{error}</p>}
 
-      <div className="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Batch</th>
-              <th>Expiry</th>
-              <th>Supplier</th>
-              <th>Selling Price</th>
-              <th>Qty</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((item) => (
-              <tr key={item.id}>
-                <td>{item.name}</td>
-                <td>{item.batchNumber}</td>
-                <td>{item.expiryDate}</td>
-                <td>{item.supplier}</td>
-                <td>{item.sellingPrice}</td>
-                <td>{item.quantity}</td>
+      <form className="panel" onSubmit={handleCreate}>
+        <h3>Add Inventory Row</h3>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Medicine Name</th>
+                <th>Batch</th>
+                <th>Expiry</th>
+                <th>Supplier</th>
+                <th>Unit</th>
+                <th>Purchase</th>
+                <th>Selling</th>
+                <th>Quantity</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
                 <td>
-                  <Link to={`/inventory/${item.id}`}>View details</Link>
+                  <input
+                    required
+                    value={createForm.name}
+                    onChange={(event) => setCreateForm({ ...createForm, name: event.target.value })}
+                  />
+                </td>
+                <td>
+                  <input
+                    required
+                    value={createForm.batchNumber}
+                    onChange={(event) => setCreateForm({ ...createForm, batchNumber: event.target.value })}
+                  />
+                </td>
+                <td>
+                  <input
+                    required
+                    type="date"
+                    value={createForm.expiryDate}
+                    onChange={(event) => setCreateForm({ ...createForm, expiryDate: event.target.value })}
+                  />
+                </td>
+                <td>
+                  <input
+                    required
+                    value={createForm.supplier}
+                    onChange={(event) => setCreateForm({ ...createForm, supplier: event.target.value })}
+                  />
+                </td>
+                <td>
+                  <select
+                    value={createForm.unitType}
+                    onChange={(event) => setCreateForm({ ...createForm, unitType: event.target.value })}
+                  >
+                    {UNIT_TYPES.map((unit) => (
+                      <option key={unit} value={unit}>{unit}</option>
+                    ))}
+                  </select>
+                </td>
+                <td>
+                  <input
+                    required
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={createForm.purchasePrice}
+                    onChange={(event) => setCreateForm({ ...createForm, purchasePrice: event.target.value })}
+                  />
+                </td>
+                <td>
+                  <input
+                    required
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={createForm.sellingPrice}
+                    onChange={(event) => setCreateForm({ ...createForm, sellingPrice: event.target.value })}
+                  />
+                </td>
+                <td>
+                  <input
+                    required
+                    type="number"
+                    min="0"
+                    value={createForm.quantity}
+                    onChange={(event) => setCreateForm({ ...createForm, quantity: event.target.value })}
+                  />
+                </td>
+                <td>
+                  <button type="submit" disabled={loading}>
+                    {loading ? 'Saving...' : 'Add'}
+                  </button>
                 </td>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </tbody>
+          </table>
+        </div>
+      </form>
+
+      <div className="panel table-panel">
+        <div className="toolbar">
+          <input
+            placeholder="Search by medicine, batch, supplier"
+            value={filter}
+            onChange={(event) => setFilter(event.target.value)}
+          />
+        </div>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Batch</th>
+                <th>Expiry</th>
+                <th>Supplier</th>
+                <th>Unit</th>
+                <th>Cost Price</th>
+                <th>Selling Price</th>
+                <th>Profit / Unit</th>
+                <th>Qty</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((item) => (
+                <tr key={item.id}>
+                  <td>{item.name}</td>
+                  <td>{item.batchNumber}</td>
+                  <td>{item.expiryDate}</td>
+                  <td>{item.supplier}</td>
+                  <td>{item.unitType || '-'}</td>
+                  <td>{item.purchasePrice}</td>
+                  <td>{item.sellingPrice}</td>
+                  <td>{(Number(item.sellingPrice || 0) - Number(item.purchasePrice || 0)).toFixed(2)}</td>
+                  <td>{item.quantity}</td>
+                  <td>
+                    <Link to={`/inventory/${item.id}`}>View details</Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </section>
   );

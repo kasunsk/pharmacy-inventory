@@ -99,6 +99,9 @@ export async function fetchTransactions(filters) {
   if (filters?.transactionId) {
     params.set('transactionId', filters.transactionId);
   }
+  if (filters?.salesPerson) {
+    params.set('salesPerson', filters.salesPerson);
+  }
   if (filters?.fromDate) {
     params.set('fromDate', filters.fromDate);
   }
@@ -127,5 +130,59 @@ export async function fetchTransactionBill(transactionId) {
     throw new Error('Failed to fetch bill details.');
   }
   return response.json();
+}
+
+export async function fetchEmployees() {
+  const response = await fetch(`${API_BASE}/employees`, {
+    headers: {
+      ...authHeaders()
+    }
+  });
+  if (!response.ok) {
+    throw new Error('Failed to fetch users.');
+  }
+  return response.json();
+}
+
+export async function createEmployee(payload) {
+  const response = await fetch(`${API_BASE}/employees`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...authHeaders()
+    },
+    body: JSON.stringify(payload)
+  });
+  if (!response.ok) {
+    throw new Error('Failed to create user.');
+  }
+  return response.json();
+}
+
+export async function updateEmployee(id, payload) {
+  const response = await fetch(`${API_BASE}/employees/${id}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      ...authHeaders()
+    },
+    body: JSON.stringify(payload)
+  });
+  if (!response.ok) {
+    throw new Error('Failed to update user.');
+  }
+  return response.json();
+}
+
+export async function deleteEmployee(id) {
+  const response = await fetch(`${API_BASE}/employees/${id}`, {
+    method: 'DELETE',
+    headers: {
+      ...authHeaders()
+    }
+  });
+  if (!response.ok) {
+    throw new Error('Failed to delete user.');
+  }
 }
 

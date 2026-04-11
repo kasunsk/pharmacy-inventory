@@ -21,7 +21,7 @@ public class AiController {
     }
 
     @PostMapping("/query")
-    @PreAuthorize("hasAnyRole('ADMIN','EMPLOYER')")
+    @PreAuthorize("hasAnyRole('ADMIN','TRANSACTIONS')")
     public Map<String, Object> query(@Valid @RequestBody AiQueryRequest request) {
         String normalized = request.query().trim().toLowerCase();
 

@@ -20,25 +20,25 @@ public class InventoryController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN','EMPLOYER')")
+    @PreAuthorize("hasAnyRole('ADMIN','INVENTORY')")
     public List<Medicine> list() {
         return inventoryService.list();
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN','EMPLOYER')")
+    @PreAuthorize("hasAnyRole('ADMIN','INVENTORY')")
     public Medicine getById(@PathVariable Long id) {
         return inventoryService.getById(id);
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN','EMPLOYER')")
+    @PreAuthorize("hasAnyRole('ADMIN','INVENTORY')")
     public Medicine create(@Valid @RequestBody MedicineRequest request) {
         return inventoryService.create(request);
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN','EMPLOYER')")
+    @PreAuthorize("hasAnyRole('ADMIN','INVENTORY')")
     public Medicine update(@PathVariable Long id, @Valid @RequestBody MedicineRequest request) {
         return inventoryService.update(id, request);
     }
@@ -50,13 +50,13 @@ public class InventoryController {
     }
 
     @GetMapping("/alerts/low-stock")
-    @PreAuthorize("hasAnyRole('ADMIN','EMPLOYER')")
+    @PreAuthorize("hasAnyRole('ADMIN','INVENTORY')")
     public List<Medicine> lowStock(@RequestParam(defaultValue = "10") int threshold) {
         return inventoryService.lowStock(threshold);
     }
 
     @GetMapping("/alerts/expiry")
-    @PreAuthorize("hasAnyRole('ADMIN','EMPLOYER')")
+    @PreAuthorize("hasAnyRole('ADMIN','INVENTORY')")
     public List<Medicine> expiry(@RequestParam(defaultValue = "30") int days) {
         return inventoryService.expiringBefore(LocalDate.now().plusDays(days));
     }

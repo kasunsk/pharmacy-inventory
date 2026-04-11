@@ -7,6 +7,7 @@ import java.util.List;
 public record SaleBillResponse(
         String transactionId,
         Instant dateTime,
+        String salesPerson,
         String customerName,
         String customerPhone,
         List<SaleBillItemResponse> items,

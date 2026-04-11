@@ -24,7 +24,7 @@ public class StoredFile {
 
     @Lob
     @Basic(fetch = FetchType.LAZY)
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "BYTEA")
     private byte[] data;
 
     @Column(nullable = false)

@@ -60,6 +60,7 @@ public class InventoryService {
         medicine.setBatchNumber(request.batchNumber());
         medicine.setExpiryDate(request.expiryDate());
         medicine.setSupplier(request.supplier());
+        medicine.setUnitType(request.unitType().trim());
         medicine.setPurchasePrice(request.purchasePrice());
         medicine.setSellingPrice(request.sellingPrice());
         medicine.setQuantity(request.quantity());

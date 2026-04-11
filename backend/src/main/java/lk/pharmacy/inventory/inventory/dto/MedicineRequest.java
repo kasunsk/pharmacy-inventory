@@ -12,6 +12,7 @@ public record MedicineRequest(
         @NotBlank String batchNumber,
         @NotNull LocalDate expiryDate,
         @NotBlank String supplier,
+        @NotBlank String unitType,
         @NotNull BigDecimal purchasePrice,
         @NotNull BigDecimal sellingPrice,
         @Min(0) int quantity

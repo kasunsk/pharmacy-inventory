@@ -23,29 +23,30 @@ public class SalesController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN','EMPLOYER')")
+    @PreAuthorize("hasAnyRole('ADMIN','BILLING')")
     public SaleBillResponse create(@Valid @RequestBody CreateSaleRequest request) {
         return salesService.createSale(request);
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN','EMPLOYER')")
+    @PreAuthorize("hasAnyRole('ADMIN','TRANSACTIONS')")
     public List<SaleTransactionSummaryResponse> list(
             @RequestParam(required = false) String transactionId,
+            @RequestParam(required = false) String salesPerson,
             @RequestParam(required = false) LocalDate fromDate,
             @RequestParam(required = false) LocalDate toDate
     ) {
-        return salesService.findTransactions(transactionId, fromDate, toDate);
+        return salesService.findTransactions(transactionId, salesPerson, fromDate, toDate);
     }
 
     @GetMapping("/{transactionId}")
-    @PreAuthorize("hasAnyRole('ADMIN','EMPLOYER')")
+    @PreAuthorize("hasAnyRole('ADMIN','TRANSACTIONS')")
     public SaleBillResponse getByTransactionId(@PathVariable String transactionId) {
         return salesService.getBillByTransactionId(transactionId);
     }
 
     @GetMapping("/summary")
-    @PreAuthorize("hasAnyRole('ADMIN','EMPLOYER')")
+    @PreAuthorize("hasAnyRole('ADMIN','TRANSACTIONS')")
     public SalesSummaryResponse summary(@RequestParam(defaultValue = "DAY") SalesPeriod period) {
         return salesService.getSalesSummary(period);
     }

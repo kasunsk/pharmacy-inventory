@@ -35,13 +35,15 @@ export default function InventoryDetailPage() {
   }
 
   return (
-    <section className="card">
+    <section className="panel">
       <h2>{item.name}</h2>
       <p><strong>Batch:</strong> {item.batchNumber}</p>
       <p><strong>Expiry:</strong> {item.expiryDate}</p>
       <p><strong>Supplier:</strong> {item.supplier}</p>
+      <p><strong>Unit:</strong> {item.unitType}</p>
       <p><strong>Purchase Price:</strong> {item.purchasePrice}</p>
       <p><strong>Selling Price:</strong> {item.sellingPrice}</p>
+      <p><strong>Profit / Unit:</strong> {(Number(item.sellingPrice || 0) - Number(item.purchasePrice || 0)).toFixed(2)}</p>
       <p><strong>Quantity:</strong> {item.quantity}</p>
       <Link to="/inventory">Back to inventory</Link>
     </section>

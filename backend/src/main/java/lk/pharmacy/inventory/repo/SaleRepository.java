@@ -20,6 +20,12 @@ public interface SaleRepository extends JpaRepository<Sale, Long> {
 
     List<Sale> findByCreatedAtBetweenOrderByCreatedAtDesc(Instant start, Instant end);
 
+    List<Sale> findByCreatedAtBetweenAndCreatedBy_UsernameContainingIgnoreCaseOrderByCreatedAtDesc(
+            Instant start,
+            Instant end,
+            String username
+    );
+
     List<Sale> findByTransactionIdContainingIgnoreCaseOrderByCreatedAtDesc(String transactionId);
 
     List<Sale> findByTransactionIdContainingIgnoreCaseAndCreatedAtBetweenOrderByCreatedAtDesc(
@@ -27,5 +33,21 @@ public interface SaleRepository extends JpaRepository<Sale, Long> {
             Instant start,
             Instant end
     );
+
+    List<Sale> findByTransactionIdContainingIgnoreCaseAndCreatedAtBetweenAndCreatedBy_UsernameContainingIgnoreCaseOrderByCreatedAtDesc(
+            String transactionId,
+            Instant start,
+            Instant end,
+            String username
+    );
+
+    @Query("""
+            select s.createdBy.username, count(s), coalesce(sum(s.totalAfterDiscount), 0)
+            from Sale s
+            where s.createdAt between :start and :end
+            group by s.createdBy.username
+            order by coalesce(sum(s.totalAfterDiscount), 0) desc
+            """)
+    List<Object[]> summarizeSalesByUser(Instant start, Instant end);
 }
 

@@ -26,6 +26,9 @@ public class Medicine {
     @Column(nullable = false)
     private String supplier;
 
+    @Column(nullable = false, length = 50)
+    private String unitType = "tablet";
+
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal purchasePrice;
 
@@ -70,6 +73,14 @@ public class Medicine {
 
     public void setSupplier(String supplier) {
         this.supplier = supplier;
+    }
+
+    public String getUnitType() {
+        return unitType;
+    }
+
+    public void setUnitType(String unitType) {
+        this.unitType = unitType;
     }
 
     public BigDecimal getPurchasePrice() {
