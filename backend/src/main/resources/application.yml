@@ -1,0 +1,47 @@
+spring:
+  application:
+    name: pharmacy-inventory
+  datasource:
+    url: jdbc:h2:mem:pharmacy;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+  h2:
+    console:
+      enabled: true
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 5MB
+
+app:
+  jwt:
+    secret: 7a8f56caa34f5b6a7d8c9e01234567897a8f56caa34f5b6a7d8c9e0123456789
+    expiration-ms: 86400000
+  file-sign:
+    secret: 4c5d6e7f8091abcdeffedcba109876544c5d6e7f8091abcdeffedcba10987654
+    expiration-ms: 300000
+  cors:
+    allowed-origin: http://localhost:5173
+
+---
+spring:
+  config:
+    activate:
+      on-profile: postgres
+  datasource:
+    url: jdbc:postgresql://localhost:5432/pharmacy
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
