@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { createPrescriptionSale, fetchInventory } from '../api';
+import { createPrescriptionSale, fetchBillingMedicines } from '../api';
 
 const USAGE_OPTIONS = [
   { value: 'ORAL_ONCE_DAILY_AFTER_MEALS', label: 'Oral - Take 1 tablet once daily after meals' },
@@ -80,15 +80,20 @@ export default function BillingPageV2() {
   }, [calculatedRows]);
 
   useEffect(() => {
-    loadInventory();
+    loadBillingMedicines();
   }, []);
 
-  async function loadInventory() {
+  async function loadBillingMedicines() {
     setLoading(true);
     setError('');
     try {
-      setInventory(await fetchInventory());
+      setInventory(await fetchBillingMedicines());
     } catch (e) {
+      // Keep billing UX clean for limited users and avoid exposing module-level technical errors.
+      if (e.status === 401 || e.status === 403) {
+        setInventory([]);
+        return;
+      }
       setError(e.message);
     } finally {
       setLoading(false);
@@ -196,7 +201,7 @@ export default function BillingPageV2() {
       setRows([emptyRow()]);
       setCustomerName('');
       setCustomerPhone('');
-      await loadInventory();
+      await loadBillingMedicines();
     } catch (e) {
       setError(e.message);
     } finally {
@@ -208,10 +213,14 @@ export default function BillingPageV2() {
     <section>
       <div className="page-title-row">
         <h2>Billing</h2>
-        <button type="button" onClick={loadInventory} disabled={loading}>
+        <button type="button" onClick={loadBillingMedicines} disabled={loading}>
           {loading ? 'Refreshing...' : 'Refresh Inventory'}
         </button>
       </div>
+
+      {!loading && inventory.length === 0 && (
+        <p className="muted">No medicines are available for billing right now.</p>
+      )}
 
       {error && <p className="error">{error}</p>}
 
@@ -332,7 +341,7 @@ export default function BillingPageV2() {
             <span>Discount: {money(totals.discount)}</span>
             <span className="strong">Final payable: {money(totals.payable)}</span>
           </div>
-          <button type="submit" disabled={saving || loading}>
+          <button type="submit" disabled={saving || loading || inventory.length === 0}>
             {saving ? 'Completing billing...' : 'Complete Billing'}
           </button>
         </div>

@@ -2,6 +2,7 @@ package lk.pharmacy.inventory.sales;
 
 import jakarta.validation.Valid;
 import lk.pharmacy.inventory.sales.dto.CreateSaleRequest;
+import lk.pharmacy.inventory.sales.dto.BillingMedicineOptionResponse;
 import lk.pharmacy.inventory.sales.dto.SaleBillResponse;
 import lk.pharmacy.inventory.sales.dto.SaleTransactionSummaryResponse;
 import lk.pharmacy.inventory.sales.dto.SalesPeriod;
@@ -26,6 +27,12 @@ public class SalesController {
     @PreAuthorize("hasAnyRole('ADMIN','BILLING')")
     public SaleBillResponse create(@Valid @RequestBody CreateSaleRequest request) {
         return salesService.createSale(request);
+    }
+
+    @GetMapping("/billing-medicines")
+    @PreAuthorize("hasAnyRole('ADMIN','BILLING')")
+    public List<BillingMedicineOptionResponse> billingMedicines() {
+        return salesService.listBillingMedicines();
     }
 
     @GetMapping

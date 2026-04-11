@@ -174,6 +174,20 @@ public class SalesService {
     }
 
     @Transactional(readOnly = true)
+    public List<BillingMedicineOptionResponse> listBillingMedicines() {
+        return medicineRepository.findAll().stream()
+                .map(medicine -> new BillingMedicineOptionResponse(
+                        medicine.getId(),
+                        medicine.getName(),
+                        medicine.getUnitType(),
+                        medicine.getSellingPrice(),
+                        medicine.getQuantity(),
+                        medicine.getQuantity() > 0
+                ))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
     public SaleBillResponse getBillByTransactionId(String transactionId) {
         Sale sale = saleRepository.findByTransactionId(transactionId)
                 .orElseThrow(() -> new ApiException("Transaction not found"));

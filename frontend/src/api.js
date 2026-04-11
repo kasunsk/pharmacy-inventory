@@ -8,6 +8,20 @@ function authHeaders() {
   return { Authorization: `Bearer ${token}` };
 }
 
+async function parseApiError(response, fallbackMessage) {
+  let message = fallbackMessage;
+  try {
+    const body = await response.json();
+    if (body?.message) {
+      message = body.message;
+    }
+  } catch (_) {
+  }
+  const error = new Error(message);
+  error.status = response.status;
+  return error;
+}
+
 export async function login(username, password) {
   const response = await fetch(`${API_BASE}/auth/login`, {
     method: 'POST',
@@ -15,7 +29,7 @@ export async function login(username, password) {
     body: JSON.stringify({ username, password })
   });
   if (!response.ok) {
-    throw new Error('Login failed. Check credentials.');
+    throw await parseApiError(response, 'Login failed. Check credentials.');
   }
   return response.json();
 }
@@ -27,7 +41,19 @@ export async function fetchInventory() {
     }
   });
   if (!response.ok) {
-    throw new Error('Failed to fetch inventory.');
+    throw await parseApiError(response, 'Failed to fetch inventory.');
+  }
+  return response.json();
+}
+
+export async function fetchBillingMedicines() {
+  const response = await fetch(`${API_BASE}/sales/billing-medicines`, {
+    headers: {
+      ...authHeaders()
+    }
+  });
+  if (!response.ok) {
+    throw await parseApiError(response, 'Unable to load medicines for billing.');
   }
   return response.json();
 }
@@ -39,7 +65,7 @@ export async function fetchMedicine(id) {
     }
   });
   if (!response.ok) {
-    throw new Error('Failed to fetch medicine details.');
+    throw await parseApiError(response, 'Failed to fetch medicine details.');
   }
   return response.json();
 }
@@ -54,7 +80,7 @@ export async function createMedicine(payload) {
     body: JSON.stringify(payload)
   });
   if (!response.ok) {
-    throw new Error('Failed to create inventory record.');
+    throw await parseApiError(response, 'Failed to create inventory record.');
   }
   return response.json();
 }
@@ -66,7 +92,7 @@ export async function fetchSalesSummary(period) {
     }
   });
   if (!response.ok) {
-    throw new Error('Failed to fetch sales summary.');
+    throw await parseApiError(response, 'Failed to fetch sales summary.');
   }
   return response.json();
 }
@@ -81,15 +107,7 @@ export async function createPrescriptionSale(payload) {
     body: JSON.stringify(payload)
   });
   if (!response.ok) {
-    let message = 'Failed to create sale.';
-    try {
-      const body = await response.json();
-      if (body.message) {
-        message = body.message;
-      }
-    } catch (_) {
-    }
-    throw new Error(message);
+    throw await parseApiError(response, 'Failed to create sale.');
   }
   return response.json();
 }
@@ -115,7 +133,7 @@ export async function fetchTransactions(filters) {
     }
   });
   if (!response.ok) {
-    throw new Error('Failed to fetch transactions.');
+    throw await parseApiError(response, 'Failed to fetch transactions.');
   }
   return response.json();
 }
@@ -127,7 +145,7 @@ export async function fetchTransactionBill(transactionId) {
     }
   });
   if (!response.ok) {
-    throw new Error('Failed to fetch bill details.');
+    throw await parseApiError(response, 'Failed to fetch bill details.');
   }
   return response.json();
 }
@@ -139,7 +157,7 @@ export async function fetchEmployees() {
     }
   });
   if (!response.ok) {
-    throw new Error('Failed to fetch users.');
+    throw await parseApiError(response, 'Failed to fetch users.');
   }
   return response.json();
 }
@@ -154,7 +172,7 @@ export async function createEmployee(payload) {
     body: JSON.stringify(payload)
   });
   if (!response.ok) {
-    throw new Error('Failed to create user.');
+    throw await parseApiError(response, 'Failed to create user.');
   }
   return response.json();
 }
@@ -169,7 +187,7 @@ export async function updateEmployee(id, payload) {
     body: JSON.stringify(payload)
   });
   if (!response.ok) {
-    throw new Error('Failed to update user.');
+    throw await parseApiError(response, 'Failed to update user.');
   }
   return response.json();
 }
@@ -182,7 +200,6 @@ export async function deleteEmployee(id) {
     }
   });
   if (!response.ok) {
-    throw new Error('Failed to delete user.');
+    throw await parseApiError(response, 'Failed to delete user.');
   }
 }
-

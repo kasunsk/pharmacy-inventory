@@ -2,6 +2,8 @@ package lk.pharmacy.inventory.exception;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -33,6 +35,18 @@ public class GlobalExceptionHandler {
                 .orElse("Validation error");
         log.warn("Validation error at {}: {}", request.getRequestURI(), message);
         return build(HttpStatus.BAD_REQUEST, message, request.getRequestURI());
+    }
+
+    @ExceptionHandler(AuthenticationException.class)
+    public ResponseEntity<?> handleAuth(AuthenticationException ex, HttpServletRequest request) {
+        log.warn("Authentication error at {}: {}", request.getRequestURI(), ex.getMessage());
+        return build(HttpStatus.UNAUTHORIZED, "Authentication required", request.getRequestURI());
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<?> handleAccessDenied(AccessDeniedException ex, HttpServletRequest request) {
+        log.warn("Access denied at {}", request.getRequestURI());
+        return build(HttpStatus.FORBIDDEN, "Access denied", request.getRequestURI());
     }
 
     @ExceptionHandler(Exception.class)
