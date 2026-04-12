@@ -1,5 +1,15 @@
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
 
+function emptyPage() {
+  return {
+    content: [],
+    totalElements: 0,
+    totalPages: 1,
+    number: 0,
+    size: 10
+  };
+}
+
 function authHeaders() {
   const token = localStorage.getItem('token');
   if (!token) {
@@ -34,6 +44,84 @@ export async function login(username, password) {
   return response.json();
 }
 
+export async function fetchTenants() {
+  const response = await fetch(`${API_BASE}/admin-portal/tenants`, {
+    headers: { ...authHeaders() }
+  });
+  if (!response.ok) {
+    throw await parseApiError(response, 'Failed to fetch tenants.');
+  }
+  return response.json();
+}
+
+export async function createTenant(payload) {
+  const response = await fetch(`${API_BASE}/admin-portal/tenants`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify(payload)
+  });
+  if (!response.ok) {
+    throw await parseApiError(response, 'Failed to create tenant.');
+  }
+  return response.json();
+}
+
+export async function fetchTenantUsers() {
+  const response = await fetch(`${API_BASE}/admin-portal/tenants/users`, {
+    headers: { ...authHeaders() }
+  });
+  if (!response.ok) {
+    throw await parseApiError(response, 'Failed to fetch tenant users.');
+  }
+  return response.json();
+}
+
+export async function assignUserToTenant(userId, tenantId) {
+  const response = await fetch(`${API_BASE}/admin-portal/tenants/users/${userId}/assignment`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ tenantId })
+  });
+  if (!response.ok) {
+    throw await parseApiError(response, 'Failed to assign user to tenant.');
+  }
+  return response.json();
+}
+
+export async function updateTenantStatus(tenantId, enabled) {
+  const response = await fetch(`${API_BASE}/admin-portal/tenants/${tenantId}/status`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ enabled })
+  });
+  if (!response.ok) {
+    throw await parseApiError(response, 'Failed to update tenant status.');
+  }
+  return response.json();
+}
+
+export async function updateTenantConfig(tenantId, config) {
+  const response = await fetch(`${API_BASE}/admin-portal/tenants/${tenantId}/config`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify(config)
+  });
+  if (!response.ok) {
+    throw await parseApiError(response, 'Failed to update tenant configuration.');
+  }
+  return response.json();
+}
+
+export async function fetchTenantAudits(limit = 50) {
+  const response = await fetch(`${API_BASE}/admin-portal/tenants/audits?limit=${encodeURIComponent(limit)}`, {
+    headers: { ...authHeaders() }
+  });
+  if (!response.ok) {
+    throw await parseApiError(response, 'Failed to fetch tenant audit logs.');
+  }
+  return response.json();
+}
+
 export async function fetchInventory(options) {
   const isPagedRequest = Boolean(options);
   const { page = 0, size = 10 } = options || {};
@@ -46,6 +134,9 @@ export async function fetchInventory(options) {
       ...authHeaders()
     }
   });
+  if (response.status === 404 || response.status === 204) {
+    return isPagedRequest ? emptyPage() : [];
+  }
   if (!response.ok) {
     throw await parseApiError(response, 'Failed to fetch inventory.');
   }
@@ -113,6 +204,18 @@ export async function fetchSalesSummary(period) {
       ...authHeaders()
     }
   });
+  if (response.status === 404 || response.status === 204) {
+    return {
+      from: '-',
+      to: '-',
+      saleCount: 0,
+      totalSales: 0,
+      totalCost: 0,
+      totalProfit: 0,
+      topSellingMedicines: [],
+      salesByUser: []
+    };
+  }
   if (!response.ok) {
     throw await parseApiError(response, 'Failed to fetch sales summary.');
   }
@@ -160,6 +263,9 @@ export async function fetchTransactions(filters) {
       ...authHeaders()
     }
   });
+  if (response.status === 404 || response.status === 204) {
+    return filters?.page !== undefined || filters?.size !== undefined ? emptyPage() : [];
+  }
   if (!response.ok) {
     throw await parseApiError(response, 'Failed to fetch transactions.');
   }
@@ -191,6 +297,9 @@ export async function fetchEmployees(options) {
       ...authHeaders()
     }
   });
+  if (response.status === 404 || response.status === 204) {
+    return isPagedRequest ? emptyPage() : [];
+  }
   if (!response.ok) {
     throw await parseApiError(response, 'Failed to fetch users.');
   }

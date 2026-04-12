@@ -1,14 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
-import { NavLink, Navigate, Route, Routes } from 'react-router-dom';
+import { NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { useAuth } from './auth/AuthContext';
 import AiAssistantPanel from './components/AiAssistantPanel';
 import ProtectedRoute from './components/ProtectedRoute';
 import LoginPage from './pages/LoginPage';
+import SuperAdminLoginPage from './pages/SuperAdminLoginPage';
 import InventoryListPage from './pages/InventoryListPage';
 import InventoryDetailPage from './pages/InventoryDetailPage';
 import BillingPage from './pages/BillingPage';
 import TransactionHistoryPage from './pages/TransactionHistoryPage';
 import SalesAnalyticsPage from './pages/SalesAnalyticsPage';
+import TenantManagementPage from './pages/TenantManagementPage';
 import UserManagementPage from './pages/UserManagementPage';
 import ProfilePage from './pages/ProfilePage';
 
@@ -19,14 +21,25 @@ const ACCESS = {
   TRANSACTIONS: ['TRANSACTIONS'],
   ADMIN: ['ADMIN'],
   ANALYTICS: ['ADMIN'],
-  AI: ['BILLING', 'INVENTORY', 'TRANSACTIONS', 'ADMIN']
+  AI: ['BILLING', 'INVENTORY', 'TRANSACTIONS', 'ADMIN'],
+  SUPER_ADMIN: ['SUPER_ADMIN']
 };
 
 export default function App() {
-  const { isAuthenticated, session, logout, hasAnyRole } = useAuth();
+  const { isAuthenticated, session, logout, hasAnyRole, hasFeature } = useAuth();
+  const location = useLocation();
   const [isAiOpen, setIsAiOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const profileRef = useRef(null);
+
+  const isAdminPortalRoute = location.pathname.startsWith('/admin-portal');
+  const isSuperAdmin = hasAnyRole(ACCESS.SUPER_ADMIN);
+
+  const canAccessBilling = hasAnyRole(ACCESS.BILLING) && hasFeature('billingEnabled');
+  const canAccessInventory = hasAnyRole(ACCESS.INVENTORY_VIEW) && hasFeature('inventoryEnabled');
+  const canAccessTransactions = hasAnyRole(ACCESS.TRANSACTIONS) && hasFeature('transactionsEnabled');
+  const canAccessAnalytics = hasAnyRole(ACCESS.ANALYTICS) && hasFeature('analyticsEnabled');
+  const canAccessAi = hasAnyRole(ACCESS.AI) && hasFeature('aiAssistantEnabled');
 
   useEffect(() => {
     if (!isProfileOpen) return;
@@ -38,21 +51,24 @@ export default function App() {
     document.addEventListener('mousedown', handleOutsideClick);
     return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, [isProfileOpen]);
+
   const defaultPath = !isAuthenticated
     ? '/login'
-    : hasAnyRole(ACCESS.BILLING)
-      ? '/billing'
-      : hasAnyRole(ACCESS.TRANSACTIONS)
-        ? '/transactions'
-        : hasAnyRole(ACCESS.INVENTORY)
-          ? '/inventory'
-          : hasAnyRole(ACCESS.ADMIN)
-            ? '/users'
-            : '/login';
+    : isSuperAdmin
+      ? '/admin-portal/tenants'
+      : canAccessBilling
+        ? '/billing'
+        : canAccessTransactions
+          ? '/transactions'
+          : canAccessInventory
+            ? '/inventory'
+            : hasAnyRole(ACCESS.ADMIN)
+              ? '/users'
+              : '/login';
 
   return (
     <div className={`app-shell ${isAiOpen ? 'ai-open' : ''}`}>
-      {isAuthenticated && (
+      {isAuthenticated && !isAdminPortalRoute && !isSuperAdmin && (
         <header className="top-nav">
           <div className="brand-lockup">
             <span className="brand-mark" aria-hidden="true">Rx</span>
@@ -62,10 +78,10 @@ export default function App() {
             </div>
           </div>
           <nav aria-label="Main navigation">
-            {hasAnyRole(ACCESS.BILLING) && <NavLink to="/billing">Billing</NavLink>}
-            {hasAnyRole(ACCESS.INVENTORY_VIEW) && <NavLink to="/inventory">Inventory</NavLink>}
-            {hasAnyRole(ACCESS.TRANSACTIONS) && <NavLink to="/transactions">Transactions</NavLink>}
-            {hasAnyRole(ACCESS.ANALYTICS) && <NavLink to="/sales-analytics">Analytics</NavLink>}
+            {canAccessBilling && <NavLink to="/billing">Billing</NavLink>}
+            {canAccessInventory && <NavLink to="/inventory">Inventory</NavLink>}
+            {canAccessTransactions && <NavLink to="/transactions">Transactions</NavLink>}
+            {canAccessAnalytics && <NavLink to="/sales-analytics">Analytics</NavLink>}
             {hasAnyRole(ACCESS.ADMIN) && <NavLink to="/users">Users</NavLink>}
 
             <div className="profile-menu-wrap" ref={profileRef}>
@@ -110,7 +126,23 @@ export default function App() {
         </header>
       )}
 
-      {isAuthenticated && hasAnyRole(ACCESS.AI) && (
+      {isAuthenticated && isAdminPortalRoute && isSuperAdmin && (
+        <header className="top-nav">
+          <div className="brand-lockup">
+            <span className="brand-mark" aria-hidden="true">Rx</span>
+            <div>
+              <h1>Admin Portal</h1>
+              <small>Super Admin: {session.username}</small>
+            </div>
+          </div>
+          <nav aria-label="Admin portal navigation">
+            <NavLink to="/admin-portal/tenants">Tenants</NavLink>
+            <button type="button" className="ghost" onClick={logout}>Sign Out</button>
+          </nav>
+        </header>
+      )}
+
+      {isAuthenticated && canAccessAi && (
         <AiAssistantPanel isOpen={isAiOpen} onToggle={() => setIsAiOpen((value) => !value)} onClose={() => setIsAiOpen(false)} />
       )}
 
@@ -118,12 +150,13 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Navigate to={defaultPath} replace />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/super-admin/login" element={<SuperAdminLoginPage />} />
 
           <Route
             path="/billing"
             element={(
               <ProtectedRoute allowedRoles={ACCESS.BILLING}>
-                <BillingPage />
+                {canAccessBilling ? <BillingPage /> : <Navigate to={defaultPath} replace />}
               </ProtectedRoute>
             )}
           />
@@ -131,7 +164,7 @@ export default function App() {
             path="/inventory"
             element={(
               <ProtectedRoute allowedRoles={ACCESS.INVENTORY_VIEW}>
-                <InventoryListPage />
+                {canAccessInventory ? <InventoryListPage /> : <Navigate to={defaultPath} replace />}
               </ProtectedRoute>
             )}
           />
@@ -139,7 +172,7 @@ export default function App() {
             path="/inventory/:id"
             element={(
               <ProtectedRoute allowedRoles={ACCESS.INVENTORY_VIEW}>
-                <InventoryDetailPage />
+                {canAccessInventory ? <InventoryDetailPage /> : <Navigate to={defaultPath} replace />}
               </ProtectedRoute>
             )}
           />
@@ -147,7 +180,7 @@ export default function App() {
             path="/transactions"
             element={(
               <ProtectedRoute allowedRoles={ACCESS.TRANSACTIONS}>
-                <TransactionHistoryPage />
+                {canAccessTransactions ? <TransactionHistoryPage /> : <Navigate to={defaultPath} replace />}
               </ProtectedRoute>
             )}
           />
@@ -155,10 +188,20 @@ export default function App() {
             path="/sales-analytics"
             element={(
               <ProtectedRoute allowedRoles={ACCESS.ANALYTICS}>
-                <SalesAnalyticsPage />
+                {canAccessAnalytics ? <SalesAnalyticsPage /> : <Navigate to={defaultPath} replace />}
               </ProtectedRoute>
             )}
           />
+          <Route
+            path="/admin-portal/tenants"
+            element={(
+              <ProtectedRoute allowedRoles={ACCESS.SUPER_ADMIN}>
+                <TenantManagementPage />
+              </ProtectedRoute>
+            )}
+          />
+          <Route path="/tenants" element={<Navigate to="/admin-portal/tenants" replace />} />
+          <Route path="/super-admin/tenants" element={<Navigate to="/admin-portal/tenants" replace />} />
           <Route
             path="/users"
             element={(

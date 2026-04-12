@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import lk.pharmacy.inventory.ai.dto.AiChatRequest;
 import lk.pharmacy.inventory.ai.dto.AiChatResponse;
 import lk.pharmacy.inventory.ai.dto.AiQueryRequest;
+import lk.pharmacy.inventory.tenant.TenantFeatureGuardService;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -18,20 +19,25 @@ import java.util.Map;
 public class AiController {
 
     private final AiAssistantService aiAssistantService;
+    private final TenantFeatureGuardService tenantFeatureGuardService;
 
-    public AiController(AiAssistantService aiAssistantService) {
+    public AiController(AiAssistantService aiAssistantService,
+                        TenantFeatureGuardService tenantFeatureGuardService) {
         this.aiAssistantService = aiAssistantService;
+        this.tenantFeatureGuardService = tenantFeatureGuardService;
     }
 
     @PostMapping("/chat")
     @PreAuthorize("hasAnyRole('ADMIN','BILLING','INVENTORY','TRANSACTIONS')")
     public AiChatResponse chat(@Valid @RequestBody AiChatRequest request) {
+        tenantFeatureGuardService.requireAiEnabled();
         return aiAssistantService.chat(request);
     }
 
     @PostMapping("/query")
     @PreAuthorize("hasAnyRole('ADMIN','BILLING','INVENTORY','TRANSACTIONS')")
     public Map<String, Object> query(@Valid @RequestBody AiQueryRequest request) {
+        tenantFeatureGuardService.requireAiEnabled();
         AiChatResponse response = aiAssistantService.chat(new AiChatRequest(request.query(), null, List.of()));
         return Map.of(
                 "intent", response.intent(),

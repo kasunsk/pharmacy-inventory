@@ -27,22 +27,27 @@ public class EmployeeService {
     }
     @Transactional(readOnly = true)
     public List<EmployeeResponse> list() {
-        return userRepository.findAll().stream()
+        Long tenantId = currentUserService.getCurrentUser().getTenant().getId();
+        return userRepository.findByTenant_Id(tenantId).stream()
                 .map(this::toResponse)
                 .toList();
     }
     @Transactional(readOnly = true)
     public Page<EmployeeResponse> list(int page, int size) {
+        Long tenantId = currentUserService.getCurrentUser().getTenant().getId();
         PageRequest pageRequest = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 100), Sort.by("username").ascending());
-        return userRepository.findAll(pageRequest).map(this::toResponse);
+        return userRepository.findByTenant_Id(tenantId, pageRequest).map(this::toResponse);
     }
     @Transactional
     public EmployeeResponse create(CreateEmployeeRequest request) {
-        if (userRepository.existsByUsername(request.username())) {
+        User currentUser = currentUserService.getCurrentUser();
+        Long tenantId = currentUser.getTenant().getId();
+        if (userRepository.existsByUsernameAndTenant_Id(request.username(), tenantId)) {
             throw new ApiException("Username already exists");
         }
         Set<Role> roles = sanitizeRoles(request.roles(), Set.of(Role.BILLING));
         User user = new User();
+        user.setTenant(currentUser.getTenant());
         user.setUsername(request.username().trim());
         user.setPasswordHash(passwordEncoder.encode(request.password()));
         user.setRoles(roles);
@@ -51,11 +56,12 @@ public class EmployeeService {
     }
     @Transactional
     public EmployeeResponse update(Long id, UpdateEmployeeRequest request) {
-        User user = userRepository.findById(id)
+        Long tenantId = currentUserService.getCurrentUser().getTenant().getId();
+        User user = userRepository.findByIdAndTenant_Id(id, tenantId)
                 .orElseThrow(() -> new ApiException("Employee not found"));
         if (request.username() != null && !request.username().trim().isEmpty()) {
             String nextUsername = request.username().trim();
-            userRepository.findByUsername(nextUsername)
+            userRepository.findByUsernameAndTenant_Id(nextUsername, tenantId)
                     .filter(existing -> !existing.getId().equals(id))
                     .ifPresent(existing -> {
                         throw new ApiException("Username already exists");
@@ -76,10 +82,10 @@ public class EmployeeService {
     }
     @Transactional
     public void delete(Long id) {
-        if (!userRepository.existsById(id)) {
-            throw new ApiException("Employee not found");
-        }
-        userRepository.deleteById(id);
+        Long tenantId = currentUserService.getCurrentUser().getTenant().getId();
+        User user = userRepository.findByIdAndTenant_Id(id, tenantId)
+                .orElseThrow(() -> new ApiException("Employee not found"));
+        userRepository.delete(user);
     }
     @Transactional(readOnly = true)
     public EmployeeResponse profile() {

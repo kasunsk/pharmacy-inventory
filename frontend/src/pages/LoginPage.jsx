@@ -7,7 +7,7 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [username, setUsername] = useState('admin');
+  const [username, setUsername] = useState('admin@default');
   const [password, setPassword] = useState('admin123');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -20,11 +20,18 @@ export default function LoginPage() {
 
   async function onSubmit(event) {
     event.preventDefault();
+    if (!username.includes('@')) {
+      setError('Please enter username in format: username@tenant');
+      return;
+    }
     setSubmitting(true);
     setError('');
     try {
-      await login(username, password);
-      navigate(redirectPath, { replace: true });
+      const nextSession = await login(username, password);
+      const isSuperAdmin = Boolean(nextSession?.roles?.includes('SUPER_ADMIN'));
+      const requestedAdminPortal = redirectPath.startsWith('/admin-portal') || redirectPath.startsWith('/super-admin');
+      const safeRedirectPath = !isSuperAdmin && requestedAdminPortal ? '/' : redirectPath;
+      navigate(safeRedirectPath, { replace: true });
     } catch (e) {
       setError(e.message);
     } finally {
@@ -58,7 +65,11 @@ export default function LoginPage() {
             value={username}
             onChange={(event) => setUsername(event.target.value)}
             autoComplete="username"
+            placeholder="username@tenant"
           />
+          <small style={{ color: 'var(--color-text-muted, #888)', marginTop: '4px', display: 'block' }}>
+            Format: <strong>username@tenant</strong> &nbsp;(e.g. admin@default)
+          </small>
         </label>
         <label>
           Password
@@ -78,4 +89,3 @@ export default function LoginPage() {
     </section>
   );
 }
-

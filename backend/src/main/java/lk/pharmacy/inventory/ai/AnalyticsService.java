@@ -4,6 +4,7 @@ import lk.pharmacy.inventory.domain.Medicine;
 import lk.pharmacy.inventory.repo.MedicineRepository;
 import lk.pharmacy.inventory.repo.SaleItemRepository;
 import lk.pharmacy.inventory.repo.SaleRepository;
+import lk.pharmacy.inventory.util.CurrentUserService;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -16,17 +17,21 @@ public class AnalyticsService {
     private final MedicineRepository medicineRepository;
     private final SaleRepository saleRepository;
     private final SaleItemRepository saleItemRepository;
+    private final CurrentUserService currentUserService;
 
     public AnalyticsService(MedicineRepository medicineRepository,
                             SaleRepository saleRepository,
-                            SaleItemRepository saleItemRepository) {
+                            SaleItemRepository saleItemRepository,
+                            CurrentUserService currentUserService) {
         this.medicineRepository = medicineRepository;
         this.saleRepository = saleRepository;
         this.saleItemRepository = saleItemRepository;
+        this.currentUserService = currentUserService;
     }
 
     public Map<String, Object> lowStock() {
-        List<Medicine> medicines = medicineRepository.findByQuantityLessThanEqual(10);
+        Long tenantId = currentUserService.getCurrentUser().getTenant().getId();
+        List<Medicine> medicines = medicineRepository.findByQuantityLessThanEqualAndTenant_Id(10, tenantId);
         return Map.of("intent", "low_stock", "count", medicines.size(), "items", medicines);
     }
 
@@ -35,12 +40,14 @@ public class AnalyticsService {
         LocalDate today = LocalDate.now(zone);
         Instant start = today.atStartOfDay(zone).toInstant();
         Instant end = today.plusDays(1).atStartOfDay(zone).toInstant();
-        BigDecimal total = saleRepository.sumTotalBetween(start, end);
+        Long tenantId = currentUserService.getCurrentUser().getTenant().getId();
+        BigDecimal total = saleRepository.sumTotalBetween(tenantId, start, end);
         return Map.of("intent", "today_sales", "date", today.toString(), "total", total);
     }
 
     public Map<String, Object> topSelling() {
-        List<Object[]> rows = saleItemRepository.findTopSelling();
+        Long tenantId = currentUserService.getCurrentUser().getTenant().getId();
+        List<Object[]> rows = saleItemRepository.findTopSellingBetween(tenantId, Instant.EPOCH, Instant.now().plusSeconds(1));
         if (rows.isEmpty()) {
             return Map.of("intent", "top_selling", "message", "No sales data yet");
         }
@@ -49,7 +56,8 @@ public class AnalyticsService {
     }
 
     public Map<String, Object> availability(String name) {
-        List<Medicine> matches = medicineRepository.findByNameContainingIgnoreCase(name);
+        Long tenantId = currentUserService.getCurrentUser().getTenant().getId();
+        List<Medicine> matches = medicineRepository.findByNameContainingIgnoreCaseAndTenant_Id(name, tenantId);
         return Map.of("intent", "availability", "name", name, "matches", matches);
     }
 }

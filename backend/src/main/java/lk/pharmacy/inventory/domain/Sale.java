@@ -19,6 +19,11 @@ public class Sale {
     @Column(nullable = false, unique = true)
     private String transactionId;
 
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JsonIgnore
+    @JoinColumn(name = "tenant_id", nullable = false)
+    private Tenant tenant;
+
     @Column(nullable = false)
     private Instant createdAt = Instant.now();
 
@@ -54,6 +59,14 @@ public class Sale {
 
     public void setTransactionId(String transactionId) {
         this.transactionId = transactionId;
+    }
+
+    public Tenant getTenant() {
+        return tenant;
+    }
+
+    public void setTenant(Tenant tenant) {
+        this.tenant = tenant;
     }
 
     public Instant getCreatedAt() {

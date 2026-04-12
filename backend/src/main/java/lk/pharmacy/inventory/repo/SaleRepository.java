@@ -13,53 +13,61 @@ import java.util.Optional;
 
 public interface SaleRepository extends JpaRepository<Sale, Long> {
 
-    @Query("select coalesce(sum(s.totalAfterDiscount), 0) from Sale s where s.createdAt between :start and :end")
-    BigDecimal sumTotalBetween(Instant start, Instant end);
+    @Query("select coalesce(sum(s.totalAfterDiscount), 0) from Sale s where s.tenant.id = :tenantId and s.createdAt between :start and :end")
+    BigDecimal sumTotalBetween(Long tenantId, Instant start, Instant end);
 
-    long countByCreatedAtBetween(Instant start, Instant end);
+    long countByTenant_IdAndCreatedAtBetween(Long tenantId, Instant start, Instant end);
 
-    Optional<Sale> findByTransactionId(String transactionId);
+    Optional<Sale> findByTransactionIdAndTenant_Id(String transactionId, Long tenantId);
 
-    List<Sale> findByCreatedAtBetweenOrderByCreatedAtDesc(Instant start, Instant end);
+    Optional<Sale> findByIdAndTenant_Id(Long id, Long tenantId);
 
-    Page<Sale> findByCreatedAtBetweenOrderByCreatedAtDesc(Instant start, Instant end, Pageable pageable);
+    List<Sale> findByTenantIsNull();
 
-    List<Sale> findByCreatedAtBetweenAndCreatedBy_UsernameContainingIgnoreCaseOrderByCreatedAtDesc(
+    List<Sale> findByTenant_IdAndCreatedAtBetweenOrderByCreatedAtDesc(Long tenantId, Instant start, Instant end);
+
+    Page<Sale> findByTenant_IdAndCreatedAtBetweenOrderByCreatedAtDesc(Long tenantId, Instant start, Instant end, Pageable pageable);
+
+    List<Sale> findByTenant_IdAndCreatedAtBetweenAndCreatedBy_UsernameContainingIgnoreCaseOrderByCreatedAtDesc(
+            Long tenantId,
             Instant start,
             Instant end,
             String username
     );
 
-    Page<Sale> findByCreatedAtBetweenAndCreatedBy_UsernameContainingIgnoreCaseOrderByCreatedAtDesc(
+    Page<Sale> findByTenant_IdAndCreatedAtBetweenAndCreatedBy_UsernameContainingIgnoreCaseOrderByCreatedAtDesc(
+            Long tenantId,
             Instant start,
             Instant end,
             String username,
             Pageable pageable
     );
 
-    List<Sale> findByTransactionIdContainingIgnoreCaseOrderByCreatedAtDesc(String transactionId);
-
-    List<Sale> findByTransactionIdContainingIgnoreCaseAndCreatedAtBetweenOrderByCreatedAtDesc(
+    List<Sale> findByTenant_IdAndTransactionIdContainingIgnoreCaseAndCreatedAtBetweenOrderByCreatedAtDesc(
+            Long tenantId,
             String transactionId,
             Instant start,
             Instant end
     );
 
-    Page<Sale> findByTransactionIdContainingIgnoreCaseAndCreatedAtBetweenOrderByCreatedAtDesc(
+    Page<Sale> findByTenant_IdAndTransactionIdContainingIgnoreCaseAndCreatedAtBetweenOrderByCreatedAtDesc(
+            Long tenantId,
             String transactionId,
             Instant start,
             Instant end,
             Pageable pageable
     );
 
-    List<Sale> findByTransactionIdContainingIgnoreCaseAndCreatedAtBetweenAndCreatedBy_UsernameContainingIgnoreCaseOrderByCreatedAtDesc(
+    List<Sale> findByTenant_IdAndTransactionIdContainingIgnoreCaseAndCreatedAtBetweenAndCreatedBy_UsernameContainingIgnoreCaseOrderByCreatedAtDesc(
+            Long tenantId,
             String transactionId,
             Instant start,
             Instant end,
             String username
     );
 
-    Page<Sale> findByTransactionIdContainingIgnoreCaseAndCreatedAtBetweenAndCreatedBy_UsernameContainingIgnoreCaseOrderByCreatedAtDesc(
+    Page<Sale> findByTenant_IdAndTransactionIdContainingIgnoreCaseAndCreatedAtBetweenAndCreatedBy_UsernameContainingIgnoreCaseOrderByCreatedAtDesc(
+            Long tenantId,
             String transactionId,
             Instant start,
             Instant end,
@@ -70,10 +78,10 @@ public interface SaleRepository extends JpaRepository<Sale, Long> {
     @Query("""
             select s.createdBy.username, count(s), coalesce(sum(s.totalAfterDiscount), 0)
             from Sale s
-            where s.createdAt between :start and :end
+            where s.tenant.id = :tenantId and s.createdAt between :start and :end
             group by s.createdBy.username
             order by coalesce(sum(s.totalAfterDiscount), 0) desc
             """)
-    List<Object[]> summarizeSalesByUser(Instant start, Instant end);
+    List<Object[]> summarizeSalesByUser(Long tenantId, Instant start, Instant end);
 }
 

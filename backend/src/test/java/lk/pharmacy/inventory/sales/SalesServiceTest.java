@@ -2,9 +2,11 @@ package lk.pharmacy.inventory.sales;
 
 import lk.pharmacy.inventory.domain.Medicine;
 import lk.pharmacy.inventory.domain.Role;
+import lk.pharmacy.inventory.domain.Tenant;
 import lk.pharmacy.inventory.domain.User;
 import lk.pharmacy.inventory.exception.ApiException;
 import lk.pharmacy.inventory.repo.MedicineRepository;
+import lk.pharmacy.inventory.repo.TenantRepository;
 import lk.pharmacy.inventory.repo.UserRepository;
 import lk.pharmacy.inventory.sales.dto.CreateSaleRequest;
 import lk.pharmacy.inventory.sales.dto.SaleItemRequest;
@@ -42,6 +44,19 @@ class SalesServiceTest {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    @Autowired
+    private TenantRepository tenantRepository;
+
+    private Tenant ensureTenant() {
+        return tenantRepository.findByCode("TEST")
+                .orElseGet(() -> {
+                    Tenant tenant = new Tenant();
+                    tenant.setCode("TEST");
+                    tenant.setName("Test Pharmacy");
+                    return tenantRepository.save(tenant);
+                });
+    }
+
     @AfterEach
     void clearContext() {
         SecurityContextHolder.clearContext();
@@ -49,13 +64,16 @@ class SalesServiceTest {
 
     @Test
     void createSaleShouldDeductStockAndComputeTotals() {
+        Tenant tenant = ensureTenant();
         User employer = new User();
+        employer.setTenant(tenant);
         employer.setUsername("staff1");
         employer.setPasswordHash(passwordEncoder.encode("pass123"));
         employer.setRoles(Set.of(Role.BILLING));
         userRepository.save(employer);
 
         Medicine med = new Medicine();
+        med.setTenant(tenant);
         med.setName("Paracetamol");
         med.setBatchNumber("B001");
         med.setExpiryDate(LocalDate.now().plusMonths(6));
@@ -87,13 +105,16 @@ class SalesServiceTest {
 
     @Test
     void salesSummaryShouldReturnRevenueCostAndProfit() {
+        Tenant tenant = ensureTenant();
         User employer = new User();
+        employer.setTenant(tenant);
         employer.setUsername("staff2");
         employer.setPasswordHash(passwordEncoder.encode("pass123"));
         employer.setRoles(Set.of(Role.BILLING));
         userRepository.save(employer);
 
         Medicine med = new Medicine();
+        med.setTenant(tenant);
         med.setName("Vitamin C");
         med.setBatchNumber("B090");
         med.setExpiryDate(LocalDate.now().plusMonths(12));
@@ -124,13 +145,16 @@ class SalesServiceTest {
 
     @Test
     void shouldRejectManualPriceOverrideWhenNotAllowed() {
+        Tenant tenant = ensureTenant();
         User employer = new User();
+        employer.setTenant(tenant);
         employer.setUsername("staff3");
         employer.setPasswordHash(passwordEncoder.encode("pass123"));
         employer.setRoles(Set.of(Role.BILLING));
         userRepository.save(employer);
 
         Medicine med = new Medicine();
+        med.setTenant(tenant);
         med.setName("Ibuprofen");
         med.setBatchNumber("B099");
         med.setExpiryDate(LocalDate.now().plusMonths(10));

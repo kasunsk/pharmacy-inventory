@@ -42,8 +42,9 @@ public class FileService {
             throw new ApiException("File too large");
         }
 
-        Sale sale = saleRepository.findById(saleId).orElseThrow(() -> new ApiException("Sale not found"));
         User currentUser = currentUserService.getCurrentUser();
+        Sale sale = saleRepository.findByIdAndTenant_Id(saleId, currentUser.getTenant().getId())
+                .orElseThrow(() -> new ApiException("Sale not found"));
 
         StoredFile storedFile = new StoredFile();
         storedFile.setKind(kind);

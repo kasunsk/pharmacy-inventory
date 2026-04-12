@@ -7,7 +7,12 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 
 @Entity
-@Table(name = "medicines")
+@Table(
+        name = "medicines",
+        uniqueConstraints = {
+                @UniqueConstraint(name = "uk_medicine_tenant_batch", columnNames = {"tenant_id", "batch_number"})
+        }
+)
 public class Medicine {
 
     @Id
@@ -17,8 +22,12 @@ public class Medicine {
     @Column(nullable = false)
     private String name;
 
-    @Column(nullable = false, unique = true)
+    @Column(nullable = false)
     private String batchNumber;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "tenant_id", nullable = false)
+    private Tenant tenant;
 
     @Column(nullable = false)
     private LocalDate expiryDate;
@@ -57,6 +66,14 @@ public class Medicine {
 
     public void setBatchNumber(String batchNumber) {
         this.batchNumber = batchNumber;
+    }
+
+    public Tenant getTenant() {
+        return tenant;
+    }
+
+    public void setTenant(Tenant tenant) {
+        this.tenant = tenant;
     }
 
     public LocalDate getExpiryDate() {

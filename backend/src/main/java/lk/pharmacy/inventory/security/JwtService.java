@@ -24,10 +24,11 @@ public class JwtService {
         this.expirationMs = expirationMs;
     }
 
-    public String generateToken(String username) {
+    public String generateToken(String username, Long tenantId) {
         Instant now = Instant.now();
         return Jwts.builder()
                 .subject(username)
+                .claim("tenantId", tenantId)
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(now.plusMillis(expirationMs)))
                 .signWith(key)
@@ -36,6 +37,20 @@ public class JwtService {
 
     public String extractUsername(String token) {
         return extractClaims(token).getSubject();
+    }
+
+    public Long extractTenantId(String token) {
+        Object tenantId = extractClaims(token).get("tenantId");
+        if (tenantId instanceof Integer value) {
+            return value.longValue();
+        }
+        if (tenantId instanceof Long value) {
+            return value;
+        }
+        if (tenantId instanceof Number value) {
+            return value.longValue();
+        }
+        return tenantId == null ? null : Long.parseLong(String.valueOf(tenantId));
     }
 
     public boolean isValid(String token, UserDetails userDetails) {

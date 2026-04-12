@@ -7,15 +7,24 @@ import java.util.HashSet;
 import java.util.Set;
 
 @Entity
-@Table(name = "users")
+@Table(
+        name = "users",
+        uniqueConstraints = {
+                @UniqueConstraint(name = "uk_users_tenant_username", columnNames = {"tenant_id", "username"})
+        }
+)
 public class User {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true)
+    @Column(nullable = false)
     private String username;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = true)
+    @JoinColumn(name = "tenant_id", nullable = true)
+    private Tenant tenant;
 
     @Column(nullable = false)
     private String passwordHash;
@@ -50,6 +59,14 @@ public class User {
 
     public void setUsername(String username) {
         this.username = username;
+    }
+
+    public Tenant getTenant() {
+        return tenant;
+    }
+
+    public void setTenant(Tenant tenant) {
+        this.tenant = tenant;
     }
 
     public String getPasswordHash() {
