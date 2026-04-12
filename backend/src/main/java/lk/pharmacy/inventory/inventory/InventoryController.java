@@ -37,19 +37,19 @@ public class InventoryController {
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('INVENTORY')")
+    @PreAuthorize("hasAnyRole('ADMIN','INVENTORY')")
     public Medicine create(@Valid @RequestBody MedicineRequest request) {
         return inventoryService.create(request);
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('INVENTORY')")
+    @PreAuthorize("hasAnyRole('ADMIN','INVENTORY')")
     public Medicine update(@PathVariable Long id, @Valid @RequestBody UpdateMedicineRequest request) {
         return inventoryService.update(id, request);
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('INVENTORY')")
+    @PreAuthorize("hasAnyRole('ADMIN','INVENTORY')")
     public void delete(@PathVariable Long id) {
         inventoryService.delete(id);
     }

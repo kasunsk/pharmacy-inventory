@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { NavLink, Navigate, Route, Routes } from 'react-router-dom';
 import { useAuth } from './auth/AuthContext';
 import AiAssistantPanel from './components/AiAssistantPanel';
@@ -25,6 +25,19 @@ const ACCESS = {
 export default function App() {
   const { isAuthenticated, session, logout, hasAnyRole } = useAuth();
   const [isAiOpen, setIsAiOpen] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const profileRef = useRef(null);
+
+  useEffect(() => {
+    if (!isProfileOpen) return;
+    function handleOutsideClick(e) {
+      if (profileRef.current && !profileRef.current.contains(e.target)) {
+        setIsProfileOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, [isProfileOpen]);
   const defaultPath = !isAuthenticated
     ? '/login'
     : hasAnyRole(ACCESS.BILLING)
@@ -56,8 +69,46 @@ export default function App() {
             {hasAnyRole(ACCESS.TRANSACTIONS) && <NavLink to="/transactions">Transactions</NavLink>}
             {hasAnyRole(ACCESS.ANALYTICS) && <NavLink to="/sales-analytics">Analytics</NavLink>}
             {hasAnyRole(ACCESS.ADMIN) && <NavLink to="/users">Users</NavLink>}
-            <NavLink to="/profile">Profile</NavLink>
-            <button type="button" className="ghost" onClick={logout}>Logout</button>
+
+            <div className="profile-menu-wrap" ref={profileRef}>
+              <button
+                type="button"
+                className="profile-icon-btn"
+                onClick={() => setIsProfileOpen((v) => !v)}
+                aria-expanded={isProfileOpen}
+                aria-label="User profile menu"
+              >
+                <span className="profile-avatar-badge">{session.username.charAt(0).toUpperCase()}</span>
+              </button>
+              {isProfileOpen && (
+                <div className="profile-dropdown" role="menu">
+                  <div className="profile-dropdown-header">
+                    <span className="profile-avatar-badge large">{session.username.charAt(0).toUpperCase()}</span>
+                    <div>
+                      <strong>{session.username}</strong>
+                      <small>{session.roles.join(' / ')}</small>
+                    </div>
+                  </div>
+                  <div className="profile-dropdown-divider" />
+                  <NavLink
+                    to="/profile"
+                    className="profile-dropdown-item"
+                    onClick={() => setIsProfileOpen(false)}
+                    role="menuitem"
+                  >
+                    My Profile
+                  </NavLink>
+                  <button
+                    type="button"
+                    className="profile-dropdown-item ghost danger-action"
+                    role="menuitem"
+                    onClick={() => { setIsProfileOpen(false); logout(); }}
+                  >
+                    Sign Out
+                  </button>
+                </div>
+              )}
+            </div>
           </nav>
         </header>
       )}

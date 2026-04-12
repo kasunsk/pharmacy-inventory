@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { askAiAssistant } from '../api';
 import { useAuth } from '../auth/AuthContext';
 
 export default function AiAssistantPanel({ isOpen, onToggle, onClose }) {
   const { session } = useAuth();
+  const threadRef = useRef(null);
   const [messages, setMessages] = useState([
     {
       role: 'assistant',
@@ -13,6 +14,13 @@ export default function AiAssistantPanel({ isOpen, onToggle, onClose }) {
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Auto-scroll to bottom whenever messages or loading changes
+  useEffect(() => {
+    if (threadRef.current) {
+      threadRef.current.scrollTop = threadRef.current.scrollHeight;
+    }
+  }, [messages, loading]);
 
   const history = useMemo(
     () => messages.slice(-10).map((m) => ({ role: m.role, content: m.content })),
@@ -99,7 +107,7 @@ export default function AiAssistantPanel({ isOpen, onToggle, onClose }) {
             </div>
           )}
 
-          <div className="ai-thread">
+          <div className="ai-thread" ref={threadRef}>
             {messages.map((message, index) => (
               <article key={index} className={`ai-msg ${message.role}`}>
                 <strong>{message.role === 'assistant' ? 'Assistant' : 'You'}</strong>

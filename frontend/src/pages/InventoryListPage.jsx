@@ -156,7 +156,7 @@ function MedicineFields({ form, setForm, includeReason, modificationReason, setM
 }
 
 export default function InventoryListPage() {
-  const { hasRole } = useAuth();
+  const { hasAnyRole } = useAuth();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -270,7 +270,7 @@ export default function InventoryListPage() {
   const start = totalElements === 0 ? 0 : page * pageSize + 1;
   const end = Math.min((page + 1) * pageSize, totalElements);
   const modalTitle = editingItem ? `Edit ${editingItem.name}` : 'Add New Inventory';
-  const canManageInventory = hasRole('INVENTORY');
+  const canManageInventory = hasAnyRole(['INVENTORY']);
 
   return (
     <section>

@@ -757,6 +757,129 @@ td select {
   color: var(--danger);
 }
 
+/* ── Profile dropdown ─────────────────────────────────────── */
+.profile-menu-wrap {
+  position: relative;
+}
+
+.profile-icon-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  min-height: 40px;
+  padding: 0;
+  border: 2px solid var(--brand);
+  border-radius: 50%;
+  background: var(--brand-soft);
+  cursor: pointer;
+  transition: box-shadow 160ms ease, transform 160ms ease;
+}
+
+.profile-icon-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(15, 123, 99, 0.22);
+  background: var(--brand-soft);
+}
+
+.profile-avatar-badge {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--brand);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 900;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.profile-avatar-badge.large {
+  width: 42px;
+  height: 42px;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.profile-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 50;
+  min-width: 220px;
+  padding: 8px 0;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 18px 50px rgba(23, 32, 28, 0.14);
+  animation: dropIn 140ms ease;
+}
+
+@keyframes dropIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.profile-dropdown-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+}
+
+.profile-dropdown-header strong {
+  display: block;
+  font-size: 14px;
+  color: var(--ink);
+  line-height: 1.3;
+}
+
+.profile-dropdown-header small {
+  display: block;
+  font-size: 12px;
+  color: var(--brand-deep);
+  font-weight: 700;
+  margin-top: 2px;
+}
+
+.profile-dropdown-divider {
+  height: 1px;
+  background: var(--line);
+  margin: 4px 0;
+}
+
+.profile-dropdown-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 10px 16px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  min-height: auto;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+
+.profile-dropdown-item:hover {
+  background: var(--soft);
+  color: var(--brand-deep);
+  text-decoration: none;
+  transform: none;
+  box-shadow: none;
+}
+
+.profile-dropdown-item.danger-action:hover {
+  background: #fff1ef;
+  color: var(--danger);
+}
+
 .ai-msg p {
   margin: 4px 0 0;
   white-space: pre-wrap;
