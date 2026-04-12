@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { fetchProfile, updateProfile } from '../api';
 
 const PROFILE_FIELDS = [
@@ -30,10 +30,19 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const successTimer = useRef(null);
 
   useEffect(() => {
     loadProfile();
+    return () => clearTimeout(successTimer.current);
   }, []);
+
+  function showSuccess(msg) {
+    setSuccess(msg);
+    clearTimeout(successTimer.current);
+    successTimer.current = setTimeout(() => setSuccess(''), 4000);
+  }
 
   async function loadProfile() {
     setLoading(true);
@@ -62,6 +71,7 @@ export default function ProfilePage() {
     event.preventDefault();
     setSaving(true);
     setError('');
+    setSuccess('');
     try {
       const payload = { ...form };
       if (!payload.password.trim()) {
@@ -70,6 +80,7 @@ export default function ProfilePage() {
       const data = await updateProfile(payload);
       setProfile(data);
       setForm({ ...form, password: '' });
+      showSuccess('Profile updated successfully.');
     } catch (e) {
       setError(e.message);
     } finally {
@@ -90,13 +101,12 @@ export default function ProfilePage() {
       </div>
 
       {error && <p className="error">{error}</p>}
+      {success && <p className="success-banner">{success}</p>}
 
       <div className="panel">
         {profile && (
           <div className="detail-grid">
             <span><strong>Username</strong>{profile.username}</span>
-            <span><strong>Roles</strong>{(profile.roles || []).join(' / ')}</span>
-            <span><strong>Status</strong>{profile.enabled ? 'Enabled' : 'Disabled'}</span>
           </div>
         )}
       </div>

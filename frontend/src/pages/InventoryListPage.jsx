@@ -326,7 +326,6 @@ export default function InventoryListPage() {
                 <th>Unit</th>
                 <th>Cost Price</th>
                 <th>Selling Price</th>
-                <th>Profit / Unit</th>
                 <th>Qty</th>
                 <th>Actions</th>
               </tr>
@@ -339,10 +338,9 @@ export default function InventoryListPage() {
                   <td>{item.expiryDate}</td>
                   <td>{item.supplier}</td>
                   <td>{item.unitType || '-'}</td>
-                  <td>{item.purchasePrice}</td>
-                  <td>{item.sellingPrice}</td>
-                  <td>{(Number(item.sellingPrice || 0) - Number(item.purchasePrice || 0)).toFixed(2)}</td>
-                  <td>{item.quantity}</td>
+                   <td>{item.purchasePrice}</td>
+                   <td>{item.sellingPrice}</td>
+                   <td>{item.quantity}</td>
                   <td>
                     <div className="icon-actions">
                       <button type="button" className="icon-btn ghost" onClick={() => setViewingItem(item)} aria-label={`View ${item.name}`} title="View details">
@@ -359,7 +357,7 @@ export default function InventoryListPage() {
               ))}
               {!filtered.length && (
                 <tr>
-                  <td colSpan="10" className="empty-cell">
+                  <td colSpan="9" className="empty-cell">
                     {loading ? 'Loading inventory...' : 'No inventory records found.'}
                   </td>
                 </tr>

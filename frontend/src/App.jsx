@@ -58,9 +58,7 @@ export default function App() {
             <span className="brand-mark" aria-hidden="true">Rx</span>
             <div>
               <h1>Pharmacy Management System</h1>
-              <small>
-                {session.username} <span>{session.roles.join(' / ')}</span>
-              </small>
+              <small>{session.username}</small>
             </div>
           </div>
           <nav aria-label="Main navigation">
@@ -86,7 +84,6 @@ export default function App() {
                     <span className="profile-avatar-badge large">{session.username.charAt(0).toUpperCase()}</span>
                     <div>
                       <strong>{session.username}</strong>
-                      <small>{session.roles.join(' / ')}</small>
                     </div>
                   </div>
                   <div className="profile-dropdown-divider" />

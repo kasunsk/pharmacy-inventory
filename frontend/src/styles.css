@@ -448,6 +448,21 @@ td select {
   padding: 10px 12px;
 }
 
+.success-banner {
+  color: #0a5c3a;
+  font-weight: 800;
+  background: #e6f7ef;
+  border: 1px solid #a3d9bf;
+  border-radius: 8px;
+  padding: 10px 12px;
+  animation: fadeInDown 200ms ease;
+}
+
+@keyframes fadeInDown {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
 .billing-footer {
   display: flex;
   gap: 12px;
