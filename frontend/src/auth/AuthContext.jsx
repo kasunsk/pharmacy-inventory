@@ -60,13 +60,18 @@ export function AuthProvider({ children }) {
     return requiredRoles.some((role) => session.roles.includes(role));
   }
 
+  function hasRole(role) {
+    return Boolean(session?.roles?.includes(role));
+  }
+
   const value = useMemo(() => {
     return {
       session,
       isAuthenticated: Boolean(session?.token),
       login,
       logout,
-      hasAnyRole
+      hasAnyRole,
+      hasRole
     };
   }, [session]);
 

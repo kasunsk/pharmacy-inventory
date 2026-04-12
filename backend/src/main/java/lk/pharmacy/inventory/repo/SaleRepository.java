@@ -1,6 +1,8 @@
 package lk.pharmacy.inventory.repo;
 
 import lk.pharmacy.inventory.domain.Sale;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
@@ -20,10 +22,19 @@ public interface SaleRepository extends JpaRepository<Sale, Long> {
 
     List<Sale> findByCreatedAtBetweenOrderByCreatedAtDesc(Instant start, Instant end);
 
+    Page<Sale> findByCreatedAtBetweenOrderByCreatedAtDesc(Instant start, Instant end, Pageable pageable);
+
     List<Sale> findByCreatedAtBetweenAndCreatedBy_UsernameContainingIgnoreCaseOrderByCreatedAtDesc(
             Instant start,
             Instant end,
             String username
+    );
+
+    Page<Sale> findByCreatedAtBetweenAndCreatedBy_UsernameContainingIgnoreCaseOrderByCreatedAtDesc(
+            Instant start,
+            Instant end,
+            String username,
+            Pageable pageable
     );
 
     List<Sale> findByTransactionIdContainingIgnoreCaseOrderByCreatedAtDesc(String transactionId);
@@ -34,11 +45,26 @@ public interface SaleRepository extends JpaRepository<Sale, Long> {
             Instant end
     );
 
+    Page<Sale> findByTransactionIdContainingIgnoreCaseAndCreatedAtBetweenOrderByCreatedAtDesc(
+            String transactionId,
+            Instant start,
+            Instant end,
+            Pageable pageable
+    );
+
     List<Sale> findByTransactionIdContainingIgnoreCaseAndCreatedAtBetweenAndCreatedBy_UsernameContainingIgnoreCaseOrderByCreatedAtDesc(
             String transactionId,
             Instant start,
             Instant end,
             String username
+    );
+
+    Page<Sale> findByTransactionIdContainingIgnoreCaseAndCreatedAtBetweenAndCreatedBy_UsernameContainingIgnoreCaseOrderByCreatedAtDesc(
+            String transactionId,
+            Instant start,
+            Instant end,
+            String username,
+            Pageable pageable
     );
 
     @Query("""

@@ -8,7 +8,14 @@ public record UpdateEmployeeRequest(
         String username,
         String password,
         Set<Role> roles,
-        Boolean enabled
+        Boolean enabled,
+        String firstName,
+        String lastName,
+        String phoneNumber,
+        String email,
+        String address,
+        String birthdate,
+        String gender
 ) {
 }
 

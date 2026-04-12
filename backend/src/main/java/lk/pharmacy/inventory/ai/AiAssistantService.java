@@ -74,7 +74,7 @@ public class AiAssistantService {
         if (!hasAccess(user, intent)) {
             return new AiChatResponse(
                     intent,
-                    "You do not have permission to access that information.",
+                    "You do not have permission to access this information.",
                     defaultQuickActions(user),
                     Map.of("allowedCapabilities", defaultQuickActions(user))
             );
@@ -160,9 +160,11 @@ public class AiAssistantService {
             return true;
         }
         return switch (intent) {
-            case INTENT_GET_PROFIT_BY_PERIOD, INTENT_GET_TRANSACTION_INSIGHTS -> user.hasRole(Role.TRANSACTIONS);
+            case INTENT_GET_PROFIT_BY_PERIOD -> user.hasRole(Role.ADMIN);
+            case INTENT_GET_TRANSACTION_INSIGHTS -> user.hasRole(Role.TRANSACTIONS);
             case INTENT_GET_TOTAL_INVENTORY_COUNT, INTENT_GET_LOW_STOCK_MEDICINES,
-                    INTENT_GET_MIN_STOCK_MEDICINE, INTENT_GET_MEDICINE_AVAILABILITY -> user.hasRole(Role.INVENTORY);
+                    INTENT_GET_MIN_STOCK_MEDICINE, INTENT_GET_MEDICINE_AVAILABILITY ->
+                    user.hasRole(Role.INVENTORY) || user.hasRole(Role.BILLING) || user.hasRole(Role.TRANSACTIONS);
             case INTENT_GET_BILLING_ASSISTANCE -> user.hasRole(Role.BILLING);
             default -> true;
         };

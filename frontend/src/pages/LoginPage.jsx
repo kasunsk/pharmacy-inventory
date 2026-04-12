@@ -34,9 +34,23 @@ export default function LoginPage() {
 
   return (
     <section className="auth-shell">
+      <div className="auth-intro">
+        <span className="brand-mark large" aria-hidden="true">Rx</span>
+        <p className="eyebrow">Sri Lanka pharmacy operations</p>
+        <h1>Inventory, billing, and transactions in one workspace.</h1>
+        <p>
+          Keep counter sales moving, track stock confidently, and review daily performance without switching systems.
+        </p>
+        <div className="auth-highlights" aria-label="System modules">
+          <span>Inventory</span>
+          <span>Billing</span>
+          <span>Transactions</span>
+        </div>
+      </div>
       <form className="panel login-panel" onSubmit={onSubmit}>
-        <h2>Pharmacy Management Login</h2>
-        <p>Secure sign-in is required to access billing and management features.</p>
+        <p className="eyebrow">Secure access</p>
+        <h2>Sign in</h2>
+        <p>Use your staff account to continue.</p>
         <label>
           Username
           <input

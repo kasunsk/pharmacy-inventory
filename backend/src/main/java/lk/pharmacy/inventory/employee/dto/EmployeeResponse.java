@@ -8,7 +8,14 @@ public record EmployeeResponse(
         Long id,
         String username,
         Set<Role> roles,
-        boolean enabled
+        boolean enabled,
+        String firstName,
+        String lastName,
+        String phoneNumber,
+        String email,
+        String address,
+        String birthdate,
+        String gender
 ) {
 }
 

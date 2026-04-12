@@ -7,6 +7,7 @@ import lk.pharmacy.inventory.sales.dto.SaleBillResponse;
 import lk.pharmacy.inventory.sales.dto.SaleTransactionSummaryResponse;
 import lk.pharmacy.inventory.sales.dto.SalesPeriod;
 import lk.pharmacy.inventory.sales.dto.SalesSummaryResponse;
+import org.springframework.data.domain.Page;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -37,13 +38,15 @@ public class SalesController {
 
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN','TRANSACTIONS')")
-    public List<SaleTransactionSummaryResponse> list(
+    public Page<SaleTransactionSummaryResponse> list(
             @RequestParam(required = false) String transactionId,
             @RequestParam(required = false) String salesPerson,
             @RequestParam(required = false) LocalDate fromDate,
-            @RequestParam(required = false) LocalDate toDate
+            @RequestParam(required = false) LocalDate toDate,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
     ) {
-        return salesService.findTransactions(transactionId, salesPerson, fromDate, toDate);
+        return salesService.findTransactions(transactionId, salesPerson, fromDate, toDate, page, size);
     }
 
     @GetMapping("/{transactionId}")
@@ -53,7 +56,7 @@ public class SalesController {
     }
 
     @GetMapping("/summary")
-    @PreAuthorize("hasAnyRole('ADMIN','TRANSACTIONS')")
+    @PreAuthorize("hasRole('ADMIN')")
     public SalesSummaryResponse summary(@RequestParam(defaultValue = "DAY") SalesPeriod period) {
         return salesService.getSalesSummary(period);
     }

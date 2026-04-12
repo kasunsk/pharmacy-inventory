@@ -34,8 +34,14 @@ export async function login(username, password) {
   return response.json();
 }
 
-export async function fetchInventory() {
-  const response = await fetch(`${API_BASE}/inventory`, {
+export async function fetchInventory(options) {
+  const isPagedRequest = Boolean(options);
+  const { page = 0, size = 10 } = options || {};
+  const params = new URLSearchParams({
+    page: String(page),
+    size: String(size)
+  });
+  const response = await fetch(`${API_BASE}/inventory?${params.toString()}`, {
     headers: {
       ...authHeaders()
     }
@@ -43,7 +49,8 @@ export async function fetchInventory() {
   if (!response.ok) {
     throw await parseApiError(response, 'Failed to fetch inventory.');
   }
-  return response.json();
+  const data = await response.json();
+  return isPagedRequest ? data : data.content || data;
 }
 
 export async function fetchBillingMedicines() {
@@ -81,6 +88,21 @@ export async function createMedicine(payload) {
   });
   if (!response.ok) {
     throw await parseApiError(response, 'Failed to create inventory record.');
+  }
+  return response.json();
+}
+
+export async function updateMedicine(id, payload) {
+  const response = await fetch(`${API_BASE}/inventory/${id}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      ...authHeaders()
+    },
+    body: JSON.stringify(payload)
+  });
+  if (!response.ok) {
+    throw await parseApiError(response, 'Failed to update inventory record.');
   }
   return response.json();
 }
@@ -126,6 +148,12 @@ export async function fetchTransactions(filters) {
   if (filters?.toDate) {
     params.set('toDate', filters.toDate);
   }
+  if (filters?.page !== undefined) {
+    params.set('page', String(filters.page));
+  }
+  if (filters?.size !== undefined) {
+    params.set('size', String(filters.size));
+  }
 
   const response = await fetch(`${API_BASE}/sales?${params.toString()}`, {
     headers: {
@@ -135,7 +163,8 @@ export async function fetchTransactions(filters) {
   if (!response.ok) {
     throw await parseApiError(response, 'Failed to fetch transactions.');
   }
-  return response.json();
+  const data = await response.json();
+  return filters?.page !== undefined || filters?.size !== undefined ? data : data.content || data;
 }
 
 export async function fetchTransactionBill(transactionId) {
@@ -150,8 +179,14 @@ export async function fetchTransactionBill(transactionId) {
   return response.json();
 }
 
-export async function fetchEmployees() {
-  const response = await fetch(`${API_BASE}/employees`, {
+export async function fetchEmployees(options) {
+  const isPagedRequest = Boolean(options);
+  const { page = 0, size = 10 } = options || {};
+  const params = new URLSearchParams({
+    page: String(page),
+    size: String(size)
+  });
+  const response = await fetch(`${API_BASE}/employees?${params.toString()}`, {
     headers: {
       ...authHeaders()
     }
@@ -159,7 +194,8 @@ export async function fetchEmployees() {
   if (!response.ok) {
     throw await parseApiError(response, 'Failed to fetch users.');
   }
-  return response.json();
+  const data = await response.json();
+  return isPagedRequest ? data : data.content || data;
 }
 
 export async function createEmployee(payload) {
@@ -202,6 +238,33 @@ export async function deleteEmployee(id) {
   if (!response.ok) {
     throw await parseApiError(response, 'Failed to delete user.');
   }
+}
+
+export async function fetchProfile() {
+  const response = await fetch(`${API_BASE}/profile`, {
+    headers: {
+      ...authHeaders()
+    }
+  });
+  if (!response.ok) {
+    throw await parseApiError(response, 'Failed to fetch profile.');
+  }
+  return response.json();
+}
+
+export async function updateProfile(payload) {
+  const response = await fetch(`${API_BASE}/profile`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      ...authHeaders()
+    },
+    body: JSON.stringify(payload)
+  });
+  if (!response.ok) {
+    throw await parseApiError(response, 'Failed to update profile.');
+  }
+  return response.json();
 }
 
 export async function askAiAssistant(payload) {

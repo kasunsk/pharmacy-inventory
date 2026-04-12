@@ -2,13 +2,72 @@ import { useEffect, useState } from 'react';
 import { createEmployee, deleteEmployee, fetchEmployees, updateEmployee } from '../api';
 
 const ROLE_OPTIONS = ['BILLING', 'TRANSACTIONS', 'INVENTORY', 'ADMIN'];
+const PAGE_SIZES = [5, 10, 20, 50];
 
 function emptyForm() {
   return {
     username: '',
     password: '',
-    roles: ['BILLING']
+    roles: ['BILLING'],
+    firstName: '',
+    lastName: '',
+    phoneNumber: '',
+    email: '',
+    address: '',
+    birthdate: '',
+    gender: ''
   };
+}
+
+function StatusIcon({ enabled }) {
+  return (
+    <svg className="icon" viewBox="0 0 24 24" aria-hidden="true">
+      {enabled ? (
+        <>
+          <circle cx="12" cy="12" r="9" />
+          <path d="M15 9 9 15" />
+          <path d="m9 9 6 6" />
+        </>
+      ) : (
+        <>
+          <circle cx="12" cy="12" r="9" />
+          <path d="m8 12 2.5 2.5L16 9" />
+        </>
+      )}
+    </svg>
+  );
+}
+
+function KeyIcon() {
+  return (
+    <svg className="icon" viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="8" cy="12" r="3" />
+      <path d="M11 12h9" />
+      <path d="M17 12v3" />
+      <path d="M14 12v2" />
+    </svg>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg className="icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4 7h16" />
+      <path d="M10 11v6" />
+      <path d="M14 11v6" />
+      <path d="M6 7l1 13h10l1-13" />
+      <path d="M9 7V4h6v3" />
+    </svg>
+  );
+}
+
+function PencilIcon() {
+  return (
+    <svg className="icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4 16.5V20h3.5L18.1 9.4l-3.5-3.5L4 16.5z" />
+      <path d="m16 4.5 3.5 3.5" />
+    </svg>
+  );
 }
 
 export default function UserManagementPage() {
@@ -16,17 +75,28 @@ export default function UserManagementPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [form, setForm] = useState(emptyForm());
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
+  const [resetUser, setResetUser] = useState(null);
+  const [resetPassword, setResetPassword] = useState('');
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(10);
+  const [totalElements, setTotalElements] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
 
   useEffect(() => {
     loadUsers();
-  }, []);
+  }, [page, pageSize]);
 
-  async function loadUsers() {
+  async function loadUsers(nextPage = page, nextSize = pageSize) {
     setLoading(true);
     setError('');
     try {
-      const data = await fetchEmployees();
-      setUsers(data);
+      const data = await fetchEmployees({ page: nextPage, size: nextSize });
+      const content = Array.isArray(data) ? data : data.content || [];
+      setUsers(content);
+      setTotalElements(Array.isArray(data) ? content.length : data.totalElements ?? content.length);
+      setTotalPages(Math.max(Array.isArray(data) ? 1 : data.totalPages || 1, 1));
     } catch (e) {
       setError(e.message);
     } finally {
@@ -40,6 +110,25 @@ export default function UserManagementPage() {
     try {
       await createEmployee(form);
       setForm(emptyForm());
+      setIsCreateOpen(false);
+      setPage(0);
+      await loadUsers(0, pageSize);
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  async function handleResetPassword(event) {
+    event.preventDefault();
+    if (!resetPassword.trim()) {
+      setError('New password is required.');
+      return;
+    }
+    setError('');
+    try {
+      await updateEmployee(resetUser.id, { password: resetPassword.trim() });
+      setResetUser(null);
+      setResetPassword('');
       await loadUsers();
     } catch (e) {
       setError(e.message);
@@ -70,57 +159,98 @@ export default function UserManagementPage() {
     await loadUsers();
   }
 
+  function closeCreate() {
+    setForm(emptyForm());
+    setIsCreateOpen(false);
+  }
+
+  function openEdit(user) {
+    setEditingUser(user);
+    setForm({
+      ...emptyForm(),
+      username: user.username || '',
+      password: '',
+      roles: user.roles || [],
+      firstName: user.firstName || '',
+      lastName: user.lastName || '',
+      phoneNumber: user.phoneNumber || '',
+      email: user.email || '',
+      address: user.address || '',
+      birthdate: user.birthdate || '',
+      gender: user.gender || ''
+    });
+  }
+
+  function closeEdit() {
+    setEditingUser(null);
+    setForm(emptyForm());
+  }
+
+  async function handleEdit(event) {
+    event.preventDefault();
+    setError('');
+    try {
+      const payload = { ...form };
+      if (!payload.password.trim()) {
+        delete payload.password;
+      }
+      await updateEmployee(editingUser.id, payload);
+      closeEdit();
+      await loadUsers();
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  const profileFields = [
+    ['firstName', 'First name', 'text'],
+    ['lastName', 'Last name', 'text'],
+    ['phoneNumber', 'Phone number', 'tel'],
+    ['email', 'Email', 'email'],
+    ['address', 'Address', 'text'],
+    ['birthdate', 'Birthdate', 'date'],
+    ['gender', 'Gender', 'text']
+  ];
+  const start = totalElements === 0 ? 0 : page * pageSize + 1;
+  const end = Math.min((page + 1) * pageSize, totalElements);
+
   return (
     <section>
-      <h2>User Management</h2>
-      <p>Create users and control module access by assigning one or multiple roles.</p>
+      <div className="page-title-row">
+        <div>
+          <h2>User Management</h2>
+          <p>Create users and control module access by assigning one or multiple roles.</p>
+        </div>
+        <button type="button" onClick={() => setIsCreateOpen(true)}>Add New User</button>
+      </div>
 
       {error && <p className="error">{error}</p>}
 
-      <form className="panel" onSubmit={handleCreate}>
-        <h3>Create User</h3>
-        <div className="form-grid">
-          <label>
-            Username
-            <input
-              required
-              value={form.username}
-              onChange={(event) => setForm({ ...form, username: event.target.value })}
-            />
-          </label>
-          <label>
-            Password
-            <input
-              required
-              type="password"
-              value={form.password}
-              onChange={(event) => setForm({ ...form, password: event.target.value })}
-            />
-          </label>
-        </div>
-
-        <div className="role-pills">
-          {ROLE_OPTIONS.map((role) => (
-            <label key={role} className="role-pill">
-              <input
-                type="checkbox"
-                checked={form.roles.includes(role)}
-                onChange={() => setForm({ ...form, roles: toggleRole(form.roles, role) })}
-              />
-              {role}
-            </label>
-          ))}
-        </div>
-
-        <button type="submit">Create User</button>
-      </form>
-
       <div className="panel table-panel">
         <div className="page-title-row">
-          <h3>Users</h3>
-          <button type="button" onClick={loadUsers} disabled={loading}>
-            {loading ? 'Refreshing...' : 'Refresh'}
-          </button>
+          <div>
+            <h3>Users</h3>
+            <span className="muted">Showing {start}-{end} of {totalElements}</span>
+          </div>
+          <div className="title-actions">
+            <label className="page-size-control">
+              Page size
+              <select
+                value={pageSize}
+                onChange={(event) => {
+                  setPageSize(Number(event.target.value));
+                  setPage(0);
+                }}
+              >
+                {PAGE_SIZES.map((size) => (
+                  <option key={size} value={size}>{size}</option>
+                ))}
+              </select>
+            </label>
+            <button type="button" onClick={() => loadUsers()} disabled={loading}>
+              {loading ? 'Refreshing...' : 'Refresh'}
+            </button>
+          </div>
         </div>
 
         <div className="table-wrap">
@@ -128,6 +258,8 @@ export default function UserManagementPage() {
             <thead>
               <tr>
                 <th>Username</th>
+                <th>Name</th>
+                <th>Contact</th>
                 <th>Roles</th>
                 <th>Status</th>
                 <th>Actions</th>
@@ -137,6 +269,11 @@ export default function UserManagementPage() {
               {users.map((user) => (
                 <tr key={user.id}>
                   <td>{user.username}</td>
+                  <td>{[user.firstName, user.lastName].filter(Boolean).join(' ') || '-'}</td>
+                  <td>
+                    {user.email || '-'}
+                    {user.phoneNumber && <span className="muted">{user.phoneNumber}</span>}
+                  </td>
                   <td>
                     <div className="role-pills compact">
                       {ROLE_OPTIONS.map((role) => (
@@ -160,10 +297,21 @@ export default function UserManagementPage() {
                   </td>
                   <td>{user.enabled ? 'Enabled' : 'Disabled'}</td>
                   <td>
-                    <div className="toolbar">
+                    <div className="icon-actions">
                       <button
                         type="button"
-                        className="ghost"
+                        className="icon-btn ghost"
+                        title="Edit details"
+                        aria-label={`Edit ${user.username}`}
+                        onClick={() => openEdit(user)}
+                      >
+                        <PencilIcon />
+                      </button>
+                      <button
+                        type="button"
+                        className="icon-btn ghost"
+                        title={user.enabled ? 'Disable' : 'Enable'}
+                        aria-label={user.enabled ? `Disable ${user.username}` : `Enable ${user.username}`}
                         onClick={async () => {
                           try {
                             setError('');
@@ -173,11 +321,25 @@ export default function UserManagementPage() {
                           }
                         }}
                       >
-                        {user.enabled ? 'Disable' : 'Enable'}
+                        <StatusIcon enabled={user.enabled} />
                       </button>
                       <button
                         type="button"
-                        className="ghost"
+                        className="icon-btn ghost"
+                        title="Reset password"
+                        aria-label={`Reset password for ${user.username}`}
+                        onClick={() => {
+                          setResetUser(user);
+                          setResetPassword('');
+                        }}
+                      >
+                        <KeyIcon />
+                      </button>
+                      <button
+                        type="button"
+                        className="icon-btn ghost danger-action"
+                        title="Delete"
+                        aria-label={`Delete ${user.username}`}
                         onClick={async () => {
                           try {
                             setError('');
@@ -187,17 +349,181 @@ export default function UserManagementPage() {
                           }
                         }}
                       >
-                        Delete
+                        <TrashIcon />
                       </button>
                     </div>
                   </td>
                 </tr>
               ))}
+              {!users.length && (
+                <tr>
+                  <td colSpan="6" className="empty-cell">
+                    {loading ? 'Loading users...' : 'No users found.'}
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
+        <div className="pagination-bar">
+          <span>Page {page + 1} of {totalPages}</span>
+          <div className="pagination-controls">
+            <button type="button" className="ghost" onClick={() => setPage((value) => Math.max(value - 1, 0))} disabled={page === 0 || loading}>
+              Previous
+            </button>
+            <button type="button" className="ghost" onClick={() => setPage((value) => Math.min(value + 1, totalPages - 1))} disabled={page >= totalPages - 1 || loading}>
+              Next
+            </button>
+          </div>
+        </div>
       </div>
+
+      {isCreateOpen && (
+        <div className="modal-backdrop" role="presentation" onMouseDown={closeCreate}>
+          <form className="modal-card" onSubmit={handleCreate} onMouseDown={(event) => event.stopPropagation()}>
+            <div className="page-title-row">
+              <div>
+                <p className="eyebrow">Admin access</p>
+                <h3>Create User</h3>
+              </div>
+              <button type="button" className="ghost icon-btn" onClick={closeCreate} aria-label="Close create user">x</button>
+            </div>
+            <div className="form-grid">
+              <label>
+                Username
+                <input
+                  required
+                  value={form.username}
+                  onChange={(event) => setForm({ ...form, username: event.target.value })}
+                />
+              </label>
+              <label>
+                Password
+                <input
+                  required
+                  type="password"
+                  value={form.password}
+                  onChange={(event) => setForm({ ...form, password: event.target.value })}
+                />
+              </label>
+              {profileFields.map(([key, label, type]) => (
+                <label key={key}>
+                  {label}
+                  <input
+                    type={type}
+                    value={form[key]}
+                    onChange={(event) => setForm({ ...form, [key]: event.target.value })}
+                  />
+                </label>
+              ))}
+            </div>
+
+            <div className="role-pills">
+              {ROLE_OPTIONS.map((role) => (
+                <label key={role} className="role-pill">
+                  <input
+                    type="checkbox"
+                    checked={form.roles.includes(role)}
+                    onChange={() => setForm({ ...form, roles: toggleRole(form.roles, role) })}
+                  />
+                  {role}
+                </label>
+              ))}
+            </div>
+
+            <div className="modal-actions">
+              <button type="button" className="ghost" onClick={closeCreate}>Cancel</button>
+              <button type="submit">Create User</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {resetUser && (
+        <div className="modal-backdrop" role="presentation" onMouseDown={() => setResetUser(null)}>
+          <form className="modal-card compact-modal" onSubmit={handleResetPassword} onMouseDown={(event) => event.stopPropagation()}>
+            <div className="page-title-row">
+              <div>
+                <p className="eyebrow">Password reset</p>
+                <h3>{resetUser.username}</h3>
+              </div>
+              <button type="button" className="ghost icon-btn" onClick={() => setResetUser(null)} aria-label="Close reset password">x</button>
+            </div>
+            <label>
+              New password
+              <input
+                required
+                type="password"
+                value={resetPassword}
+                onChange={(event) => setResetPassword(event.target.value)}
+              />
+            </label>
+            <div className="modal-actions">
+              <button type="button" className="ghost" onClick={() => setResetUser(null)}>Cancel</button>
+              <button type="submit">Reset Password</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {editingUser && (
+        <div className="modal-backdrop" role="presentation" onMouseDown={closeEdit}>
+          <form className="modal-card" onSubmit={handleEdit} onMouseDown={(event) => event.stopPropagation()}>
+            <div className="page-title-row">
+              <div>
+                <p className="eyebrow">User details</p>
+                <h3>Edit {editingUser.username}</h3>
+              </div>
+              <button type="button" className="ghost icon-btn" onClick={closeEdit} aria-label="Close edit user">x</button>
+            </div>
+            <div className="form-grid">
+              <label>
+                Username
+                <input
+                  required
+                  value={form.username}
+                  onChange={(event) => setForm({ ...form, username: event.target.value })}
+                />
+              </label>
+              <label>
+                New password
+                <input
+                  type="password"
+                  placeholder="Leave blank to keep current password"
+                  value={form.password}
+                  onChange={(event) => setForm({ ...form, password: event.target.value })}
+                />
+              </label>
+              {profileFields.map(([key, label, type]) => (
+                <label key={key}>
+                  {label}
+                  <input
+                    type={type}
+                    value={form[key]}
+                    onChange={(event) => setForm({ ...form, [key]: event.target.value })}
+                  />
+                </label>
+              ))}
+            </div>
+            <div className="role-pills">
+              {ROLE_OPTIONS.map((role) => (
+                <label key={role} className="role-pill">
+                  <input
+                    type="checkbox"
+                    checked={form.roles.includes(role)}
+                    onChange={() => setForm({ ...form, roles: toggleRole(form.roles, role) })}
+                  />
+                  {role}
+                </label>
+              ))}
+            </div>
+            <div className="modal-actions">
+              <button type="button" className="ghost" onClick={closeEdit}>Cancel</button>
+              <button type="submit">Save User</button>
+            </div>
+          </form>
+        </div>
+      )}
     </section>
   );
 }
-

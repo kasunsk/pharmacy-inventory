@@ -10,6 +10,8 @@ import lk.pharmacy.inventory.repo.SaleItemRepository;
 import lk.pharmacy.inventory.repo.SaleRepository;
 import lk.pharmacy.inventory.sales.dto.*;
 import lk.pharmacy.inventory.util.CurrentUserService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -159,18 +161,40 @@ public class SalesService {
                     );
         }
 
-        return sales.stream().map(sale -> new SaleTransactionSummaryResponse(
-                sale.getTransactionId(),
-                sale.getCreatedAt(),
-                sale.getCreatedBy().getUsername(),
-                sale.getCustomerName(),
-                sale.getItems().stream()
-                        .map(SaleItem::getMedicineNameSnapshot)
-                        .distinct()
-                        .toList(),
-                sale.getTotalAfterDiscount(),
-                sale.getItems().size()
-        )).toList();
+        return sales.stream().map(this::toSummary).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public Page<SaleTransactionSummaryResponse> findTransactions(String transactionId, String salesPerson, LocalDate fromDate, LocalDate toDate, int page, int size) {
+        Instant start = fromDate == null
+                ? Instant.EPOCH
+                : fromDate.atStartOfDay(ZoneId.systemDefault()).toInstant();
+        Instant end = toDate == null
+                ? Instant.now().plusSeconds(1)
+                : toDate.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant();
+
+        String tx = trimToNull(transactionId);
+        String username = trimToNull(salesPerson);
+        PageRequest pageRequest = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 100));
+        Page<Sale> sales;
+        if (tx == null && username == null) {
+            sales = saleRepository.findByCreatedAtBetweenOrderByCreatedAtDesc(start, end, pageRequest);
+        } else if (tx == null) {
+            sales = saleRepository.findByCreatedAtBetweenAndCreatedBy_UsernameContainingIgnoreCaseOrderByCreatedAtDesc(start, end, username, pageRequest);
+        } else if (username == null) {
+            sales = saleRepository.findByTransactionIdContainingIgnoreCaseAndCreatedAtBetweenOrderByCreatedAtDesc(tx, start, end, pageRequest);
+        } else {
+            sales = saleRepository
+                    .findByTransactionIdContainingIgnoreCaseAndCreatedAtBetweenAndCreatedBy_UsernameContainingIgnoreCaseOrderByCreatedAtDesc(
+                            tx,
+                            start,
+                            end,
+                            username,
+                            pageRequest
+                    );
+        }
+
+        return sales.map(this::toSummary);
     }
 
     @Transactional(readOnly = true)
@@ -274,6 +298,21 @@ public class SalesService {
                 sale.getTotalBeforeDiscount(),
                 sale.getDiscountAmount(),
                 sale.getTotalAfterDiscount()
+        );
+    }
+
+    private SaleTransactionSummaryResponse toSummary(Sale sale) {
+        return new SaleTransactionSummaryResponse(
+                sale.getTransactionId(),
+                sale.getCreatedAt(),
+                sale.getCreatedBy().getUsername(),
+                sale.getCustomerName(),
+                sale.getItems().stream()
+                        .map(SaleItem::getMedicineNameSnapshot)
+                        .distinct()
+                        .toList(),
+                sale.getTotalAfterDiscount(),
+                sale.getItems().size()
         );
     }
 

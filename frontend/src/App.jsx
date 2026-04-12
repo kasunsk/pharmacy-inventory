@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { NavLink, Navigate, Route, Routes } from 'react-router-dom';
 import { useAuth } from './auth/AuthContext';
+import AiAssistantPanel from './components/AiAssistantPanel';
 import ProtectedRoute from './components/ProtectedRoute';
 import LoginPage from './pages/LoginPage';
 import InventoryListPage from './pages/InventoryListPage';
@@ -8,18 +10,21 @@ import BillingPage from './pages/BillingPage';
 import TransactionHistoryPage from './pages/TransactionHistoryPage';
 import SalesAnalyticsPage from './pages/SalesAnalyticsPage';
 import UserManagementPage from './pages/UserManagementPage';
-import AiAssistantPage from './pages/AiAssistantPage';
+import ProfilePage from './pages/ProfilePage';
 
 const ACCESS = {
   BILLING: ['BILLING'],
   INVENTORY: ['INVENTORY'],
+  INVENTORY_VIEW: ['INVENTORY', 'BILLING', 'TRANSACTIONS'],
   TRANSACTIONS: ['TRANSACTIONS'],
   ADMIN: ['ADMIN'],
+  ANALYTICS: ['ADMIN'],
   AI: ['BILLING', 'INVENTORY', 'TRANSACTIONS', 'ADMIN']
 };
 
 export default function App() {
   const { isAuthenticated, session, logout, hasAnyRole } = useAuth();
+  const [isAiOpen, setIsAiOpen] = useState(false);
   const defaultPath = !isAuthenticated
     ? '/login'
     : hasAnyRole(ACCESS.BILLING)
@@ -33,28 +38,35 @@ export default function App() {
             : '/login';
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${isAiOpen ? 'ai-open' : ''}`}>
       {isAuthenticated && (
         <header className="top-nav">
-          <div>
-            <h1>Pharmacy Management System</h1>
-            <small>
-              Logged in as <strong>{session.username}</strong> ({session.roles.join(', ')})
-            </small>
+          <div className="brand-lockup">
+            <span className="brand-mark" aria-hidden="true">Rx</span>
+            <div>
+              <h1>Pharmacy Management System</h1>
+              <small>
+                {session.username} <span>{session.roles.join(' / ')}</span>
+              </small>
+            </div>
           </div>
-          <nav>
+          <nav aria-label="Main navigation">
             {hasAnyRole(ACCESS.BILLING) && <NavLink to="/billing">Billing</NavLink>}
-            {hasAnyRole(ACCESS.INVENTORY) && <NavLink to="/inventory">Inventory</NavLink>}
-            {hasAnyRole(ACCESS.TRANSACTIONS) && <NavLink to="/transactions">Transaction History</NavLink>}
-            {hasAnyRole(ACCESS.TRANSACTIONS) && <NavLink to="/sales-analytics">Sales Analytics</NavLink>}
-            {hasAnyRole(ACCESS.AI) && <NavLink to="/ai-assistant">AI Assistant</NavLink>}
+            {hasAnyRole(ACCESS.INVENTORY_VIEW) && <NavLink to="/inventory">Inventory</NavLink>}
+            {hasAnyRole(ACCESS.TRANSACTIONS) && <NavLink to="/transactions">Transactions</NavLink>}
+            {hasAnyRole(ACCESS.ANALYTICS) && <NavLink to="/sales-analytics">Analytics</NavLink>}
             {hasAnyRole(ACCESS.ADMIN) && <NavLink to="/users">Users</NavLink>}
+            <NavLink to="/profile">Profile</NavLink>
             <button type="button" className="ghost" onClick={logout}>Logout</button>
           </nav>
         </header>
       )}
 
-      <main>
+      {isAuthenticated && hasAnyRole(ACCESS.AI) && (
+        <AiAssistantPanel isOpen={isAiOpen} onToggle={() => setIsAiOpen((value) => !value)} onClose={() => setIsAiOpen(false)} />
+      )}
+
+      <main className={isAuthenticated ? 'page-content' : 'auth-content'}>
         <Routes>
           <Route path="/" element={<Navigate to={defaultPath} replace />} />
           <Route path="/login" element={<LoginPage />} />
@@ -70,7 +82,7 @@ export default function App() {
           <Route
             path="/inventory"
             element={(
-              <ProtectedRoute allowedRoles={ACCESS.INVENTORY}>
+              <ProtectedRoute allowedRoles={ACCESS.INVENTORY_VIEW}>
                 <InventoryListPage />
               </ProtectedRoute>
             )}
@@ -78,7 +90,7 @@ export default function App() {
           <Route
             path="/inventory/:id"
             element={(
-              <ProtectedRoute allowedRoles={ACCESS.INVENTORY}>
+              <ProtectedRoute allowedRoles={ACCESS.INVENTORY_VIEW}>
                 <InventoryDetailPage />
               </ProtectedRoute>
             )}
@@ -94,7 +106,7 @@ export default function App() {
           <Route
             path="/sales-analytics"
             element={(
-              <ProtectedRoute allowedRoles={ACCESS.TRANSACTIONS}>
+              <ProtectedRoute allowedRoles={ACCESS.ANALYTICS}>
                 <SalesAnalyticsPage />
               </ProtectedRoute>
             )}
@@ -107,11 +119,12 @@ export default function App() {
               </ProtectedRoute>
             )}
           />
+          <Route path="/ai-assistant" element={<Navigate to={defaultPath} replace />} />
           <Route
-            path="/ai-assistant"
+            path="/profile"
             element={(
-              <ProtectedRoute allowedRoles={ACCESS.AI}>
-                <AiAssistantPage />
+              <ProtectedRoute>
+                <ProfilePage />
               </ProtectedRoute>
             )}
           />

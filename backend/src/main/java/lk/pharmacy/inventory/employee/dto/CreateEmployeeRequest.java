@@ -8,7 +8,14 @@ import java.util.Set;
 public record CreateEmployeeRequest(
         @NotBlank String username,
         @NotBlank String password,
-        Set<Role> roles
+        Set<Role> roles,
+        String firstName,
+        String lastName,
+        String phoneNumber,
+        String email,
+        String address,
+        String birthdate,
+        String gender
 ) {
 }
 

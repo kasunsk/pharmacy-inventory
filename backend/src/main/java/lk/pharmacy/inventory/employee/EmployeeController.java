@@ -4,13 +4,12 @@ import jakarta.validation.Valid;
 import lk.pharmacy.inventory.employee.dto.CreateEmployeeRequest;
 import lk.pharmacy.inventory.employee.dto.EmployeeResponse;
 import lk.pharmacy.inventory.employee.dto.UpdateEmployeeRequest;
+import org.springframework.data.domain.Page;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-
 @RestController
-@RequestMapping("/employees")
+@RequestMapping
 public class EmployeeController {
 
     private final EmployeeService employeeService;
@@ -19,27 +18,42 @@ public class EmployeeController {
         this.employeeService = employeeService;
     }
 
-    @GetMapping
+    @GetMapping("/employees")
     @PreAuthorize("hasRole('ADMIN')")
-    public List<EmployeeResponse> list() {
-        return employeeService.list();
+    public Page<EmployeeResponse> list(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        return employeeService.list(page, size);
     }
 
-    @PostMapping
+    @PostMapping("/employees")
     @PreAuthorize("hasRole('ADMIN')")
     public EmployeeResponse create(@Valid @RequestBody CreateEmployeeRequest request) {
         return employeeService.create(request);
     }
 
-    @PutMapping("/{id}")
+    @PutMapping("/employees/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public EmployeeResponse update(@PathVariable Long id, @RequestBody UpdateEmployeeRequest request) {
         return employeeService.update(id, request);
     }
 
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/employees/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public void delete(@PathVariable Long id) {
         employeeService.delete(id);
+    }
+
+    @GetMapping("/profile")
+    @PreAuthorize("isAuthenticated()")
+    public EmployeeResponse profile() {
+        return employeeService.profile();
+    }
+
+    @PutMapping("/profile")
+    @PreAuthorize("isAuthenticated()")
+    public EmployeeResponse updateProfile(@RequestBody UpdateEmployeeRequest request) {
+        return employeeService.updateProfile(request);
     }
 }

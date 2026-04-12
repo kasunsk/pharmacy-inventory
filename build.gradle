@@ -1,0 +1,12 @@
+allprojects {
+    repositories {
+        mavenCentral()
+    }
+}
+
+tasks.register('backendBootRun') {
+    group = 'application'
+    description = 'Run backend Spring Boot application from root project'
+    dependsOn(':backend:bootRun')
+}
+
