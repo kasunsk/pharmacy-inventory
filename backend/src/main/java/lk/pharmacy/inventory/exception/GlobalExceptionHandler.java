@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -47,6 +48,23 @@ public class GlobalExceptionHandler {
     public ResponseEntity<?> handleAccessDenied(AccessDeniedException ex, HttpServletRequest request) {
         log.warn("Access denied at {}", request.getRequestURI());
         return build(HttpStatus.FORBIDDEN, "Access denied", request.getRequestURI());
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<?> handleDataIntegrity(DataIntegrityViolationException ex, HttpServletRequest request) {
+        String message = "Duplicate entry: batch number already exists for this tenant";
+        if (ex.getMessage() != null && ex.getMessage().contains("uk_")) {
+            String constraintName = ex.getMessage().replaceAll(".*uk_", "uk_").split("[^a-z_]")[0];
+            if (constraintName.contains("batch")) {
+                message = "Duplicate entry: batch number already exists for this tenant";
+            } else if (constraintName.contains("username")) {
+                message = "Duplicate entry: username already exists";
+            } else if (constraintName.contains("code")) {
+                message = "Duplicate entry: code already exists";
+            }
+        }
+        log.warn("Data integrity violation at {}: {}", request.getRequestURI(), message);
+        return build(HttpStatus.BAD_REQUEST, message, request.getRequestURI());
     }
 
     @ExceptionHandler(Exception.class)

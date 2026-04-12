@@ -1,9 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  assignUserToTenant,
   createTenant,
   fetchTenants,
-  fetchTenantUsers,
   fetchTenantAudits,
   updateTenantConfig,
   updateTenantStatus
@@ -28,16 +26,41 @@ function toConfigPayload(tenant) {
   };
 }
 
+function GearIcon() {
+  return (
+    <svg className="icon" viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="12" r="2" />
+      <path d="M12 6V3M12 21v-3M18 12h3M3 12h3M17.66 6.34l2.12-2.12M4.22 19.78l2.12-2.12M17.66 17.66l2.12 2.12M4.22 4.22l2.12 2.12" />
+    </svg>
+  );
+}
+
+function ToggleIcon({ enabled }) {
+  return (
+    <svg className="icon" viewBox="0 0 24 24" aria-hidden="true">
+      {enabled ? (
+        <>
+          <rect x="1" y="5" width="22" height="14" rx="7" ry="7" fill="none" stroke="currentColor" strokeWidth="2" />
+          <circle cx="18" cy="12" r="5" />
+        </>
+      ) : (
+        <>
+          <rect x="1" y="5" width="22" height="14" rx="7" ry="7" fill="none" stroke="currentColor" strokeWidth="2" />
+          <circle cx="6" cy="12" r="5" />
+        </>
+      )}
+    </svg>
+  );
+}
+
 export default function TenantManagementPage() {
   const [tenants, setTenants] = useState([]);
-  const [users, setUsers] = useState([]);
   const [query, setQuery] = useState('');
   const [form, setForm] = useState(emptyTenantForm());
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [assignments, setAssignments] = useState({});
   const [editingTenant, setEditingTenant] = useState(null);
   const [configForm, setConfigForm] = useState(null);
   const [audits, setAudits] = useState([]);
@@ -60,11 +83,9 @@ export default function TenantManagementPage() {
     setLoading(true);
     setError('');
     try {
-      const [tenantData, userData, auditData] = await Promise.all([fetchTenants(), fetchTenantUsers(), fetchTenantAudits(80)]);
+      const [tenantData, auditData] = await Promise.all([fetchTenants(), fetchTenantAudits(80)]);
       setTenants(tenantData);
-      setUsers(userData);
       setAudits(auditData);
-      setAssignments(Object.fromEntries(userData.map((user) => [user.userId, user.tenantId ?? ''])));
     } catch (e) {
       setError(e.message || 'Failed to load tenant data.');
     } finally {
@@ -89,27 +110,6 @@ export default function TenantManagementPage() {
       await loadData();
     } catch (e) {
       setError(e.message || 'Failed to create tenant.');
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function handleAssign(user) {
-    const tenantId = assignments[user.userId];
-    if (!tenantId) {
-      setError('Select a tenant before assigning the user.');
-      return;
-    }
-
-    setSaving(true);
-    setError('');
-    setSuccess('');
-    try {
-      await assignUserToTenant(user.userId, Number(tenantId));
-      setSuccess(`Assigned ${user.username} successfully.`);
-      await loadData();
-    } catch (e) {
-      setError(e.message || 'Failed to assign user to tenant.');
     } finally {
       setSaving(false);
     }
@@ -259,16 +259,30 @@ export default function TenantManagementPage() {
                   </td>
                   <td>{tenant.aiAssistantEnabled ? 'Enabled' : 'Disabled'}</td>
                   <td>{tenant.userCount}</td>
-                  <td>
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      <button type="button" className="ghost" onClick={() => openConfigModal(tenant)} disabled={saving}>
-                        Configure
+                   <td>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <button
+                        type="button"
+                        className="icon-btn ghost"
+                        onClick={() => openConfigModal(tenant)}
+                        disabled={saving}
+                        title="Configure Tenant"
+                        aria-label={`Configure ${tenant.name}`}
+                      >
+                        <GearIcon />
                       </button>
-                      <button type="button" className="ghost" onClick={() => handleToggleStatus(tenant)} disabled={saving}>
-                        {tenant.enabled ? 'Disable' : 'Enable'}
+                      <button
+                        type="button"
+                        className="icon-btn ghost"
+                        onClick={() => handleToggleStatus(tenant)}
+                        disabled={saving}
+                        title={tenant.enabled ? 'Disable Tenant' : 'Enable Tenant'}
+                        aria-label={tenant.enabled ? `Disable ${tenant.name}` : `Enable ${tenant.name}`}
+                      >
+                        <ToggleIcon enabled={tenant.enabled} />
                       </button>
                     </div>
-                  </td>
+                   </td>
                 </tr>
               ))}
               {!visibleTenants.length && (
@@ -282,84 +296,6 @@ export default function TenantManagementPage() {
           </table>
         </div>
       </div>
-
-      <div className="panel table-panel">
-        <div className="page-title-row">
-          <div>
-            <h3>User Assignment</h3>
-            <p>Assign each staff account to the right tenant.</p>
-          </div>
-        </div>
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Username</th>
-                <th>Status</th>
-                <th>Current Tenant</th>
-                <th>Assign To</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map((user) => (
-                <tr key={user.userId}>
-                  <td>{user.username}</td>
-                  <td>{user.enabled ? 'Enabled' : 'Disabled'}</td>
-                  <td>{user.tenantName || '-'}</td>
-                  <td>
-                    <select
-                      value={assignments[user.userId] ?? ''}
-                      onChange={(event) => setAssignments((prev) => ({ ...prev, [user.userId]: event.target.value }))}
-                    >
-                      <option value="">Select tenant</option>
-                      {visibleTenants.map((tenant) => (
-                        <option key={tenant.id} value={tenant.id}>{tenant.name} ({tenant.code})</option>
-                      ))}
-                    </select>
-                  </td>
-                  <td>
-                    <button
-                      type="button"
-                      className="ghost"
-                      onClick={() => handleAssign(user)}
-                      disabled={saving || !assignments[user.userId]}
-                    >
-                      Assign
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {!users.length && (
-                <tr>
-                  <td colSpan="5" className="empty-cell">
-                    {loading ? 'Loading users...' : 'No users found.'}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {editingTenant && configForm && (
-        <div className="panel" style={{ border: '2px solid #b2d8c8' }}>
-          <h3>Edit Tenant Configuration: {editingTenant.name}</h3>
-          <form onSubmit={handleSaveConfig}>
-            <div className="form-grid">
-              <label><input type="checkbox" checked={configForm.billingEnabled} onChange={(e) => setConfigForm({ ...configForm, billingEnabled: e.target.checked })} /> Billing</label>
-              <label><input type="checkbox" checked={configForm.transactionsEnabled} onChange={(e) => setConfigForm({ ...configForm, transactionsEnabled: e.target.checked })} /> Transactions</label>
-              <label><input type="checkbox" checked={configForm.inventoryEnabled} onChange={(e) => setConfigForm({ ...configForm, inventoryEnabled: e.target.checked })} /> Inventory</label>
-              <label><input type="checkbox" checked={configForm.analyticsEnabled} onChange={(e) => setConfigForm({ ...configForm, analyticsEnabled: e.target.checked })} /> Analytics</label>
-              <label><input type="checkbox" checked={configForm.aiAssistantEnabled} onChange={(e) => setConfigForm({ ...configForm, aiAssistantEnabled: e.target.checked })} /> AI Assistant</label>
-            </div>
-            <div className="modal-actions">
-              <button type="submit" disabled={saving}>{saving ? 'Saving...' : 'Save Configuration'}</button>
-              <button type="button" className="ghost" onClick={() => { setEditingTenant(null); setConfigForm(null); }} disabled={saving}>Cancel</button>
-            </div>
-          </form>
-        </div>
-      )}
 
       <div className="panel table-panel">
         <div className="page-title-row">
@@ -398,6 +334,66 @@ export default function TenantManagementPage() {
           </table>
         </div>
       </div>
+
+      {editingTenant && configForm && (
+        <div className="modal-backdrop" role="presentation" onMouseDown={() => { setEditingTenant(null); setConfigForm(null); }}>
+          <form className="modal-card" onSubmit={handleSaveConfig} onMouseDown={(event) => event.stopPropagation()}>
+            <div className="page-title-row">
+              <div>
+                <p className="eyebrow">Module Configuration</p>
+                <h3>{editingTenant.name}</h3>
+              </div>
+              <button type="button" className="ghost icon-btn" onClick={() => { setEditingTenant(null); setConfigForm(null); }} aria-label="Close modal">x</button>
+            </div>
+            <div className="form-grid">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={configForm.billingEnabled}
+                  onChange={(e) => setConfigForm({ ...configForm, billingEnabled: e.target.checked })}
+                />
+                Billing Module
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={configForm.transactionsEnabled}
+                  onChange={(e) => setConfigForm({ ...configForm, transactionsEnabled: e.target.checked })}
+                />
+                Transactions Module
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={configForm.inventoryEnabled}
+                  onChange={(e) => setConfigForm({ ...configForm, inventoryEnabled: e.target.checked })}
+                />
+                Inventory Module
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={configForm.analyticsEnabled}
+                  onChange={(e) => setConfigForm({ ...configForm, analyticsEnabled: e.target.checked })}
+                />
+                Analytics Module
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={configForm.aiAssistantEnabled}
+                  onChange={(e) => setConfigForm({ ...configForm, aiAssistantEnabled: e.target.checked })}
+                />
+                AI Assistant
+              </label>
+            </div>
+            <div className="modal-actions">
+              <button type="button" className="ghost" onClick={() => { setEditingTenant(null); setConfigForm(null); }} disabled={saving}>Cancel</button>
+              <button type="submit" disabled={saving}>{saving ? 'Saving...' : 'Save Configuration'}</button>
+            </div>
+          </form>
+        </div>
+      )}
     </section>
   );
 }
