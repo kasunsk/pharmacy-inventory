@@ -5,8 +5,8 @@ A full-stack Pharmacy Management System focused on safe dispensing workflows, in
 ## Project Overview
 
 This repository is a monorepo with:
-- `backend/` - Spring Boot (Java 17, Gradle), JWT auth, RBAC, inventory/sales/users APIs
-- `frontend/` - React + Vite UI for billing, inventory, transactions, analytics, and user management
+- `backend/` - Spring Boot (Java 17, Gradle), JWT auth, RBAC, tenant-aware APIs
+- `frontend/` - React + Vite UI for operations plus super admin portal
 - `docs/` - API and integration documentation artifacts
 
 The system is designed for operational pharmacy workflows:
@@ -14,13 +14,19 @@ The system is designed for operational pharmacy workflows:
 - Inventory tracking with cost/selling/profit visibility
 - Transaction history with search and detail retrieval
 - Role-based module access and admin-managed users
+- Multi-tenant onboarding and centralized super admin controls
 
 ## Features and Modules
 
 - **Auth & RBAC**
-  - JWT login
-  - Multi-role authorization (`ADMIN`, `BILLING`, `TRANSACTIONS`, `INVENTORY`)
-  - Dynamic frontend navigation by permissions
+  - Staff login format: `username@tenant`
+  - Super admin login: `super_admin` (no tenant)
+  - Multi-role authorization (`SUPER_ADMIN`, `ADMIN`, `BILLING`, `TRANSACTIONS`, `INVENTORY`)
+  - Dynamic frontend navigation by role and tenant feature toggles
+- **Admin Portal (Super Admin)**
+  - Tenant create/enable-disable/configure at `/admin-portal/tenants`
+  - Tenant module flags: billing, transactions, inventory, analytics, AI assistant
+  - Tenant audit listing (`/admin-portal/tenants/audits`)
 - **Billing**
   - Row-based medicine entry
   - Per-line discount (`%` or fixed amount)
@@ -31,6 +37,7 @@ The system is designed for operational pharmacy workflows:
   - Unit type, cost price, selling price, quantity
   - Derived profit per unit (UI)
   - Low-stock and expiry alerts
+  - Stable API responses (tenant lazy-proxy serialization fix)
 - **Transactions & Analytics**
   - Search by ID/date/salesperson
   - Full bill retrieval by transaction ID
@@ -39,6 +46,7 @@ The system is designed for operational pharmacy workflows:
   - Create/update/delete users
   - Assign multiple roles per user
   - Enable/disable users
+  - Gender input standardized to `MALE` or `FEMALE` on create flows
 
 ## System Architecture
 
@@ -51,7 +59,8 @@ The project follows a layered architecture with clear boundaries:
 
 ```mermaid
 flowchart LR
-  U[Pharmacy User] --> FE[React Frontend]
+  U[Tenant Staff] --> FE[React Frontend]
+  SA[Super Admin] --> FE
   FE -->|JWT + REST| BE[Spring Boot Backend]
   BE --> DB[(H2/PostgreSQL)]
   BE --> FS[Stored Files]
@@ -62,12 +71,15 @@ flowchart LR
 ```mermaid
 graph TD
   C1[AuthController] --> S1[AuthService]
+  C0[TenantController] --> S0[TenantService]
   C2[EmployeeController] --> S2[EmployeeService]
   C3[SalesController] --> S3[SalesService]
   C4[InventoryController] --> S4[InventoryService]
   C5[FilesController] --> S5[FileService]
 
   S1 --> R1[UserRepository]
+  S0 --> R6[TenantRepository]
+  S0 --> R7[TenantAuditLogRepository]
   S2 --> R1
   S3 --> R2[SaleRepository]
   S3 --> R3[SaleItemRepository]
@@ -80,6 +92,8 @@ graph TD
   R3 --> DB
   R4 --> DB
   R5 --> DB
+  R6 --> DB
+  R7 --> DB
 ```
 
 ### Billing Data Flow Diagram
@@ -126,7 +140,7 @@ pharmacy-inventory/
 
 ```powershell
 Set-Location "C:\Users\kasun\OneDrive\Desktop\Projects\pharmacy-inventory\backend"
-gradle bootRun
+..\gradlew.bat :backend:bootRun
 ```
 
 Backend default URL: `http://localhost:8080`
@@ -178,10 +192,12 @@ VITE_API_BASE_URL=http://localhost:8080
 - DTO-based API contracts
 - Transactional write workflows for inventory/sales consistency
 - Clear UI module separation and route protection
+- Tenant-aware auth token model (`tenantId` nullable for super admin)
+- Structured operational error payloads (status/error/message/path/timestamp)
 
 ## Default Seed Credentials
 
-- Username: `admin`
-- Password: `admin123`
+- Tenant staff/admin: `admin@default` / `admin123`
+- Super admin: `super_admin` / `admin@123`
 
 > Change default credentials before production use.

@@ -8,12 +8,21 @@ Base URL: `http://localhost:8080`
 
 `POST /auth/login`
 
-Request:
+Tenant user request:
 
 ```json
 {
-  "username": "admin",
+  "username": "admin@default",
   "password": "admin123"
+}
+```
+
+Super admin request:
+
+```json
+{
+  "username": "super_admin",
+  "password": "admin@123"
 }
 ```
 
@@ -23,9 +32,73 @@ Response:
 {
   "token": "<jwt>",
   "username": "admin",
-  "roles": ["ADMIN"]
+  "roles": ["ADMIN"],
+  "tenantId": 1,
+  "tenantCode": "DEFAULT",
+  "tenantName": "Default Pharmacy",
+  "billingEnabled": true,
+  "transactionsEnabled": true,
+  "inventoryEnabled": true,
+  "analyticsEnabled": true,
+  "aiAssistantEnabled": true
 }
 ```
+
+For `SUPER_ADMIN`, tenant fields are `null` and feature flags are `false`.
+
+## Admin Portal (SUPER_ADMIN)
+
+All endpoints below require `ROLE_SUPER_ADMIN`.
+
+### List Tenants
+
+`GET /admin-portal/tenants`
+
+### Create Tenant
+
+`POST /admin-portal/tenants`
+
+```json
+{
+  "code": "NEW01",
+  "name": "New Pharmacy",
+  "adminUsername": "admin",
+  "adminPassword": "admin123",
+  "adminGender": "MALE"
+}
+```
+
+`adminGender` must be `MALE` or `FEMALE`.
+
+### Update Tenant Status
+
+`PUT /admin-portal/tenants/{tenantId}/status`
+
+```json
+{
+  "enabled": false
+}
+```
+
+### Update Tenant Feature Config
+
+`PUT /admin-portal/tenants/{tenantId}/config`
+
+```json
+{
+  "billingEnabled": true,
+  "transactionsEnabled": true,
+  "inventoryEnabled": true,
+  "analyticsEnabled": true,
+  "aiAssistantEnabled": false
+}
+```
+
+### Tenant Audits
+
+`GET /admin-portal/tenants/audits?limit=50`
+
+Compatibility alias for admin portal endpoints is also available under `/super-admin/tenants`.
 
 ## Users (Admin)
 
@@ -38,14 +111,19 @@ All `/employees` endpoints require `ROLE_ADMIN`.
 Response:
 
 ```json
-[
-  {
-    "id": 1,
-    "username": "admin",
-    "roles": ["ADMIN"],
-    "enabled": true
-  }
-]
+{
+  "content": [
+    {
+      "id": 1,
+      "username": "admin",
+      "roles": ["ADMIN"],
+      "enabled": true,
+      "gender": "MALE"
+    }
+  ],
+  "totalElements": 1,
+  "totalPages": 1
+}
 ```
 
 ### Create User
@@ -56,9 +134,12 @@ Response:
 {
   "username": "cashier1",
   "password": "pass123",
-  "roles": ["BILLING", "TRANSACTIONS"]
+  "roles": ["BILLING", "TRANSACTIONS"],
+  "gender": "FEMALE"
 }
 ```
+
+`gender` must be `MALE` or `FEMALE`.
 
 ### Update User
 
@@ -77,7 +158,11 @@ Response:
 
 ## Inventory
 
-Requires role: `ADMIN` or `INVENTORY` (delete is `ADMIN` only).
+Requires role:
+- list/read: `ADMIN`, `INVENTORY`, `BILLING`, or `TRANSACTIONS`
+- create/update/delete: `ADMIN` or `INVENTORY`
+
+Also requires tenant inventory feature to be enabled.
 
 ### List Inventory
 
@@ -103,6 +188,10 @@ Requires role: `ADMIN` or `INVENTORY` (delete is `ADMIN` only).
   "quantity": 150
 }
 ```
+
+Notes:
+- Batch number must be unique per tenant (`tenant_id + batch_number`).
+- Duplicate batch returns a `400` error with a clear business message.
 
 ### Update Medicine
 
@@ -240,3 +329,8 @@ Response (sample):
   "path": "/sales"
 }
 ```
+
+Common examples:
+- `400` duplicate inventory batch: `"Duplicate entry: batch number already exists for this tenant"`
+- `403` role/feature denied: `"Access denied"` or module-disabled message
+

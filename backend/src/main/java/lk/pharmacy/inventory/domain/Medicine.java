@@ -1,5 +1,6 @@
 package lk.pharmacy.inventory.domain;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Min;
 
@@ -27,6 +28,7 @@ public class Medicine {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "tenant_id", nullable = false)
+    @JsonIgnore
     private Tenant tenant;
 
     @Column(nullable = false)
@@ -68,6 +70,7 @@ public class Medicine {
         this.batchNumber = batchNumber;
     }
 
+    @JsonIgnore
     public Tenant getTenant() {
         return tenant;
     }

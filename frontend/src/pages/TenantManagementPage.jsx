@@ -12,7 +12,8 @@ function emptyTenantForm() {
     code: '',
     name: '',
     adminUsername: '',
-    adminPassword: ''
+    adminPassword: '',
+    adminGender: ''
   };
 }
 
@@ -103,7 +104,8 @@ export default function TenantManagementPage() {
         code: form.code.trim().toUpperCase(),
         name: form.name.trim(),
         adminUsername: form.adminUsername.trim(),
-        adminPassword: form.adminPassword
+        adminPassword: form.adminPassword,
+        adminGender: form.adminGender
       });
       setForm(emptyTenantForm());
       setSuccess('Tenant and tenant admin user created successfully.');
@@ -209,11 +211,23 @@ export default function TenantManagementPage() {
               onChange={(event) => setForm({ ...form, adminPassword: event.target.value })}
             />
           </label>
+          <label>
+            Tenant admin gender
+            <select
+              required
+              value={form.adminGender}
+              onChange={(event) => setForm({ ...form, adminGender: event.target.value })}
+            >
+              <option value="">Select gender</option>
+              <option value="MALE">MALE</option>
+              <option value="FEMALE">FEMALE</option>
+            </select>
+          </label>
         </div>
         <div className="modal-actions">
           <button
             type="submit"
-            disabled={saving || !form.code.trim() || !form.name.trim() || !form.adminUsername.trim() || !form.adminPassword.trim()}
+            disabled={saving || !form.code.trim() || !form.name.trim() || !form.adminUsername.trim() || !form.adminPassword.trim() || !form.adminGender}
           >
             {saving ? 'Saving...' : 'Create Tenant'}
           </button>

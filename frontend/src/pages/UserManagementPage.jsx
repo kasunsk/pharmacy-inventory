@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { createEmployee, deleteEmployee, fetchEmployees, updateEmployee } from '../api';
 
 const ROLE_OPTIONS = ['BILLING', 'TRANSACTIONS', 'INVENTORY', 'ADMIN'];
+const GENDER_OPTIONS = ['MALE', 'FEMALE'];
 const PAGE_SIZES = [5, 10, 20, 50];
 
 function emptyForm() {
@@ -208,8 +209,7 @@ export default function UserManagementPage() {
     ['phoneNumber', 'Phone number', 'tel'],
     ['email', 'Email', 'email'],
     ['address', 'Address', 'text'],
-    ['birthdate', 'Birthdate', 'date'],
-    ['gender', 'Gender', 'text']
+    ['birthdate', 'Birthdate', 'date']
   ];
   const start = totalElements === 0 ? 0 : page * pageSize + 1;
   const end = Math.min((page + 1) * pageSize, totalElements);
@@ -416,6 +416,19 @@ export default function UserManagementPage() {
                   />
                 </label>
               ))}
+              <label>
+                Gender
+                <select
+                  required
+                  value={form.gender}
+                  onChange={(event) => setForm({ ...form, gender: event.target.value })}
+                >
+                  <option value="">Select gender</option>
+                  {GENDER_OPTIONS.map((value) => (
+                    <option key={value} value={value}>{value}</option>
+                  ))}
+                </select>
+              </label>
             </div>
 
             <div className="role-pills">
@@ -504,6 +517,19 @@ export default function UserManagementPage() {
                   />
                 </label>
               ))}
+              <label>
+                Gender
+                <select
+                  required
+                  value={form.gender}
+                  onChange={(event) => setForm({ ...form, gender: event.target.value })}
+                >
+                  <option value="">Select gender</option>
+                  {GENDER_OPTIONS.map((value) => (
+                    <option key={value} value={value}>{value}</option>
+                  ))}
+                </select>
+              </label>
             </div>
             <div className="role-pills">
               {ROLE_OPTIONS.map((role) => (

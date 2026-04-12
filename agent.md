@@ -14,31 +14,41 @@ It supports inventory, billing, transaction history, file upload, and analytics.
 
 ## User Roles
 
-### Admin
-- Full access
-- Manage employees
-- View all analytics (sales, cost, profit, inventory)
+### SUPER_ADMIN
+- Global system access
+- Manage tenants in Admin Portal
+- Enable/disable tenant modules and tenant status
 
-### Employer (Pharmacist / Staff)
-- Handle daily operations
-- Create sales and bills
-- Manage inventory
-- View operational analytics
+### ADMIN (Tenant)
+- Full access within own tenant
+- Manage tenant users
+- View tenant analytics and operations
+
+### BILLING / TRANSACTIONS / INVENTORY
+- Module-scoped access within own tenant
 
 ---
 
 ## Authentication and Security
 - JWT-based login (`POST /auth/login`)
-- RBAC with roles: `ADMIN`, `EMPLOYER`
+- Tenant staff login format: `username@tenant`
+- Super admin login: `super_admin`
+- RBAC with roles: `SUPER_ADMIN`, `ADMIN`, `BILLING`, `TRANSACTIONS`, `INVENTORY`
 - Password hashing with BCrypt
 
 Default seed user:
-- Username: `admin`
-- Password: `admin123`
+- Tenant admin: `admin@default` / `admin123`
+- Super admin: `super_admin` / `admin@123`
 
 ---
 
 ## Core Modules (Current State)
+
+### Admin Portal (Super Admin)
+- Route: `/admin-portal/tenants`
+- Tenant lifecycle management (create, enable/disable)
+- Tenant module configuration (billing/transactions/inventory/analytics/AI)
+- Tenant audit listing
 
 ### Inventory Management
 - Create, update, delete medicines
@@ -46,6 +56,7 @@ Default seed user:
 - Alerts:
   - Low stock
   - Upcoming expiry
+- Duplicate batch protection per tenant (`tenant_id + batch_number`)
 
 ### Billing Workflow
 - Create one sale with multiple medicine lines
@@ -91,6 +102,11 @@ Default seed user:
 
 ## API Highlights
 - `POST /auth/login`
+- `GET /admin-portal/tenants`
+- `POST /admin-portal/tenants`
+- `PUT /admin-portal/tenants/{tenantId}/status`
+- `PUT /admin-portal/tenants/{tenantId}/config`
+- `GET /admin-portal/tenants/audits`
 - `GET /inventory`
 - `GET /inventory/{id}`
 - `POST /sales`
@@ -103,8 +119,8 @@ Detailed API examples are in `docs/api.md`.
 ---
 
 ## Frontend UX Highlights
-- Separate Login page with JWT session handling
-- Default redirect to Billing after successful login
+- Separate staff login and super-admin login pages
+- Super admin routed to admin portal, tenant users routed to operations app
 - Role-protected navigation tabs
   - Billing
   - Inventory
@@ -120,6 +136,10 @@ Detailed API examples are in `docs/api.md`.
 ---
 
 ## Backend Contract Notes (Recent)
+- Login response includes tenant identity and per-module feature flags
+- Tenant admin creation requires `adminGender` = `MALE` or `FEMALE`
+- Employee creation requires `gender` = `MALE` or `FEMALE`
+- `Medicine.tenant` is excluded from JSON serialization to prevent lazy-proxy response failures
 - `SaleItemRequest` now supports per-line `remark`
 - `SaleBillItemResponse` now returns `remark`
 - `SaleBillResponse` now returns `salesPerson`

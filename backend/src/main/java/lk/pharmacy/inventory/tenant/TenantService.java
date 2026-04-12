@@ -77,6 +77,7 @@ public class TenantService {
     public TenantResponse createTenant(CreateTenantRequest request) {
         String code = normalizeCode(request.code());
         String adminUsername = normalizeUsername(request.adminUsername());
+        String adminGender = normalizeGender(request.adminGender());
         if (tenantRepository.findByCodeIgnoreCase(code).isPresent()) {
             throw new ApiException("Tenant code already exists");
         }
@@ -91,6 +92,7 @@ public class TenantService {
         tenantAdmin.setUsername(adminUsername);
         tenantAdmin.setPasswordHash(passwordEncoder.encode(request.adminPassword().trim()));
         tenantAdmin.setRoles(Set.of(Role.ADMIN));
+        tenantAdmin.setGender(adminGender);
         userRepository.save(tenantAdmin);
 
         audit(tenant, "TENANT_CREATED");
@@ -209,6 +211,14 @@ public class TenantService {
         }
         if (normalized.contains("@")) {
             throw new ApiException("Tenant admin username must not contain '@'");
+        }
+        return normalized;
+    }
+
+    private String normalizeGender(String gender) {
+        String normalized = gender == null ? "" : gender.trim().toUpperCase(Locale.ROOT);
+        if (!"MALE".equals(normalized) && !"FEMALE".equals(normalized)) {
+            throw new ApiException("Gender must be MALE or FEMALE");
         }
         return normalized;
     }
