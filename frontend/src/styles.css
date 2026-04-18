@@ -400,7 +400,8 @@ button.icon-btn:hover:not(:disabled) {
 }
 
 .billing-table-wrap {
-  overflow-y: visible;
+  /* Do NOT set overflow-y here – fixed-positioned dropdown must not be clipped */
+  overflow-x: auto;
 }
 
 table {
@@ -511,22 +512,23 @@ td select {
 }
 
 .medicine-suggestions {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  min-width: 100%;
+  /* position and coordinates are always set via inline style (position: fixed + computed rect) */
+  /* so the dropdown escapes overflow:auto clipping from table ancestors */
+  z-index: 9999;
+  min-width: 260px;
   width: max-content;
-  max-width: min(560px, 80vw);
-  z-index: 20;
-  max-height: 220px;
-  overflow: auto;
+  max-width: min(560px, 90vw);
+  max-height: 240px;
+  overflow-y: auto;
+  overflow-x: hidden;
   display: grid;
-  gap: 6px;
+  gap: 4px;
   padding: 8px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #fff;
-  box-shadow: 0 12px 24px rgba(23, 32, 28, 0.12);
+  box-shadow: 0 12px 30px rgba(23, 32, 28, 0.16);
+  animation: dropIn 120ms ease;
 }
 
 .medicine-suggestion-item {

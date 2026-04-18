@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPrescriptionSale, fetchBillingMedicines } from '../api';
 
 const USAGE_OPTIONS = [
@@ -45,6 +45,8 @@ export default function BillingPageV2() {
   const [completionMessage, setCompletionMessage] = useState('');
   const [billDiscount, setBillDiscount] = useState('0');
   const [openSuggestionsRowIndex, setOpenSuggestionsRowIndex] = useState(null);
+  const [dropdownAnchor, setDropdownAnchor] = useState(null); // {top|bottom, left, minWidth}
+  const medicineInputRefs = useRef({});
 
   const inventoryById = useMemo(() => new Map(inventory.map((item) => [String(item.id), item])), [inventory]);
 
@@ -217,6 +219,25 @@ export default function BillingPageV2() {
       medicineQuery: medicine.name
     });
     setOpenSuggestionsRowIndex(null);
+    setDropdownAnchor(null);
+  }
+
+  function openDropdownForRow(index) {
+    const inputEl = medicineInputRefs.current[index];
+    if (inputEl) {
+      const rect = inputEl.getBoundingClientRect();
+      const DROPDOWN_MAX_HEIGHT = 240;
+      const GAP = 4;
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      const showAbove = spaceBelow < DROPDOWN_MAX_HEIGHT + GAP && spaceAbove > spaceBelow;
+      setDropdownAnchor(
+        showAbove
+          ? { bottom: window.innerHeight - rect.top + GAP, left: rect.left, minWidth: rect.width }
+          : { top: rect.bottom + GAP, left: rect.left, minWidth: rect.width }
+      );
+    }
+    setOpenSuggestionsRowIndex(index);
   }
 
   async function submitSale(event) {
@@ -338,21 +359,39 @@ export default function BillingPageV2() {
                     <div className="medicine-search-wrap">
                       <input
                         required
+                        ref={(el) => { medicineInputRefs.current[index] = el; }}
                         value={row.medicineQuery}
                         onChange={(event) => {
                           updateRow(index, { medicineQuery: event.target.value });
-                          setOpenSuggestionsRowIndex(index);
+                          openDropdownForRow(index);
                         }}
-                        onFocus={() => setOpenSuggestionsRowIndex(index)}
+                        onFocus={() => openDropdownForRow(index)}
                         onBlur={() => {
                           setTimeout(() => {
-                            setOpenSuggestionsRowIndex((current) => (current === index ? null : current));
-                          }, 120);
+                            setOpenSuggestionsRowIndex((current) => {
+                              if (current === index) {
+                                setDropdownAnchor(null);
+                                return null;
+                              }
+                              return current;
+                            });
+                          }, 150);
                         }}
                         placeholder="Click or type to search medicines"
                       />
-                      {openSuggestionsRowIndex === index && (
-                        <div className="medicine-suggestions" role="listbox">
+                      {openSuggestionsRowIndex === index && dropdownAnchor && (
+                        <div
+                          className="medicine-suggestions"
+                          role="listbox"
+                          style={{
+                            position: 'fixed',
+                            left: dropdownAnchor.left,
+                            minWidth: dropdownAnchor.minWidth,
+                            ...(dropdownAnchor.top !== undefined
+                              ? { top: dropdownAnchor.top }
+                              : { bottom: dropdownAnchor.bottom })
+                          }}
+                        >
                           {filteredMedicines(row.medicineQuery).map((item) => {
                             const out = Number(item.quantity) <= 0;
                             return (
@@ -364,7 +403,7 @@ export default function BillingPageV2() {
                                 onClick={() => !out && selectMedicineFromSearch(index, item)}
                                 disabled={out}
                               >
-                                 {item.name} (stock: {item.quantity}){out ? ' - Out of stock' : ''}
+                                {item.name} (stock: {item.quantity}){out ? ' — Out of stock' : ''}
                               </button>
                             );
                           })}
@@ -372,7 +411,7 @@ export default function BillingPageV2() {
                             <p className="muted">No matching medicines found.</p>
                           )}
                           {!row.medicineQuery.trim() && (
-                            <p className="muted">Showing 5 medicines. Start typing to see all matching results.</p>
+                            <p className="muted">Showing top 5. Type to search all.</p>
                           )}
                         </div>
                       )}
