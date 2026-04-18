@@ -19,10 +19,10 @@ import PharmacySelectionPage from './pages/PharmacySelectionPage';
 const ACCESS = {
   BILLING: ['BILLING'],
   INVENTORY: ['INVENTORY'],
-  INVENTORY_VIEW: ['INVENTORY', 'BILLING', 'TRANSACTIONS'],
+  INVENTORY_VIEW: ['INVENTORY'],  // ADMIN bypasses via hasAnyRole; BILLING/TRANSACTIONS must NOT see this tab
   TRANSACTIONS: ['TRANSACTIONS'],
   ADMIN: ['ADMIN'],
-  ANALYTICS: ['ADMIN'],
+  ANALYTICS: ['ADMIN'],           // backend /sales/summary requires ADMIN only
   AI: ['BILLING', 'INVENTORY', 'TRANSACTIONS', 'ADMIN'],
   SUPER_ADMIN: ['SUPER_ADMIN']
 };

@@ -27,7 +27,7 @@ public class InventoryController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN','INVENTORY','BILLING','TRANSACTIONS')")
+    @PreAuthorize("hasAnyRole('ADMIN','INVENTORY')")
     public Page<Medicine> list(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
@@ -37,7 +37,7 @@ public class InventoryController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN','INVENTORY','BILLING','TRANSACTIONS')")
+    @PreAuthorize("hasAnyRole('ADMIN','INVENTORY')")
     public Medicine getById(@PathVariable Long id) {
         tenantFeatureGuardService.requireInventoryEnabled();
         return inventoryService.getById(id);
@@ -65,21 +65,21 @@ public class InventoryController {
     }
 
     @GetMapping("/alerts/low-stock")
-    @PreAuthorize("hasAnyRole('ADMIN','INVENTORY','BILLING','TRANSACTIONS')")
+    @PreAuthorize("hasAnyRole('ADMIN','INVENTORY')")
     public List<Medicine> lowStock(@RequestParam(defaultValue = "10") int threshold) {
         tenantFeatureGuardService.requireInventoryEnabled();
         return inventoryService.lowStock(threshold);
     }
 
     @GetMapping("/alerts/expiry")
-    @PreAuthorize("hasAnyRole('ADMIN','INVENTORY','BILLING','TRANSACTIONS')")
+    @PreAuthorize("hasAnyRole('ADMIN','INVENTORY')")
     public List<Medicine> expiry(@RequestParam(defaultValue = "30") int days) {
         tenantFeatureGuardService.requireInventoryEnabled();
         return inventoryService.expiringBefore(LocalDate.now().plusDays(days));
     }
 
     @GetMapping("/alerts/summary")
-    @PreAuthorize("hasAnyRole('ADMIN','INVENTORY','BILLING','TRANSACTIONS')")
+    @PreAuthorize("hasAnyRole('ADMIN','INVENTORY')")
     public InventoryAlertsSummaryResponse alertsSummary(
             @RequestParam(defaultValue = "10") int lowStockThreshold,
             @RequestParam(defaultValue = "30") int expiryDays
@@ -88,4 +88,3 @@ public class InventoryController {
         return inventoryService.getAlertsSummary(lowStockThreshold, expiryDays);
     }
 }
-
