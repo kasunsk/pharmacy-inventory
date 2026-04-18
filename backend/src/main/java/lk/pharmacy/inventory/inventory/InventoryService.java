@@ -16,7 +16,10 @@ import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 
 @Service
 public class InventoryService {
@@ -115,14 +118,49 @@ public class InventoryService {
     }
 
     private void apply(Medicine medicine, MedicineRequest request) {
+        Set<String> allowedUnits = normalizeAllowedUnits(request.allowedUnits(), request.unitType());
         medicine.setName(request.name());
         medicine.setBatchNumber(request.batchNumber());
         medicine.setExpiryDate(request.expiryDate());
         medicine.setSupplier(request.supplier());
-        medicine.setUnitType(request.unitType().trim());
+        medicine.setUnitType(allowedUnits.iterator().next());
+        medicine.setAllowedUnits(allowedUnits);
         medicine.setPurchasePrice(request.purchasePrice());
         medicine.setSellingPrice(request.sellingPrice());
         medicine.setQuantity(request.quantity());
+    }
+
+    private Set<String> normalizeAllowedUnits(List<String> allowedUnits, String fallbackUnit) {
+        LinkedHashSet<String> normalized = new LinkedHashSet<>();
+        if (allowedUnits != null) {
+            for (String unit : allowedUnits) {
+                String sanitized = sanitizeUnit(unit);
+                if (sanitized != null) {
+                    normalized.add(sanitized);
+                }
+            }
+        }
+        if (normalized.isEmpty()) {
+            String sanitizedFallback = sanitizeUnit(fallbackUnit);
+            if (sanitizedFallback != null) {
+                normalized.add(sanitizedFallback);
+            }
+        }
+        if (normalized.isEmpty()) {
+            throw new ApiException("At least one allowed unit is required");
+        }
+        return normalized;
+    }
+
+    private String sanitizeUnit(String unit) {
+        if (unit == null) {
+            return null;
+        }
+        String trimmed = unit.trim();
+        if (trimmed.isEmpty()) {
+            return null;
+        }
+        return trimmed.toLowerCase(Locale.ROOT);
     }
 }
 

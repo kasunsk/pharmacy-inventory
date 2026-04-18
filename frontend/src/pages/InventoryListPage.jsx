@@ -11,7 +11,7 @@ function emptyForm() {
     batchNumber: '',
     expiryDate: '',
     supplier: '',
-    unitType: 'tablet',
+    allowedUnits: ['tablet'],
     purchasePrice: '',
     sellingPrice: '',
     quantity: ''
@@ -19,12 +19,15 @@ function emptyForm() {
 }
 
 function toForm(item) {
+  const existingUnits = Array.isArray(item.allowedUnits) && item.allowedUnits.length
+    ? item.allowedUnits
+    : [item.unitType || 'tablet'];
   return {
     name: item.name || '',
     batchNumber: item.batchNumber || '',
     expiryDate: item.expiryDate || '',
     supplier: item.supplier || '',
-    unitType: item.unitType || 'tablet',
+    allowedUnits: existingUnits,
     purchasePrice: item.purchasePrice ?? '',
     sellingPrice: item.sellingPrice ?? '',
     quantity: item.quantity ?? ''
@@ -32,12 +35,25 @@ function toForm(item) {
 }
 
 function toPayload(form) {
+  const allowedUnits = Array.isArray(form.allowedUnits) ? form.allowedUnits.filter(Boolean) : [];
   return {
     ...form,
+    unitType: allowedUnits[0] || 'tablet',
+    allowedUnits,
     purchasePrice: Number(form.purchasePrice),
     sellingPrice: Number(form.sellingPrice),
     quantity: Number(form.quantity)
   };
+}
+
+function toggleUnitSelection(form, unit) {
+  const selected = new Set(form.allowedUnits || []);
+  if (selected.has(unit)) {
+    selected.delete(unit);
+  } else {
+    selected.add(unit);
+  }
+  return { ...form, allowedUnits: Array.from(selected) };
 }
 
 function EyeIcon() {
@@ -95,17 +111,22 @@ function MedicineFields({ form, setForm, includeReason, modificationReason, setM
             onChange={(event) => setForm({ ...form, supplier: event.target.value })}
           />
         </label>
-        <label>
-          Unit
-          <select
-            value={form.unitType}
-            onChange={(event) => setForm({ ...form, unitType: event.target.value })}
-          >
+        <div className="full-width-field">
+          <span>Allowed units</span>
+          <div className="role-pills compact">
             {UNIT_TYPES.map((unit) => (
-              <option key={unit} value={unit}>{unit}</option>
+              <label key={unit} className="role-pill">
+                <input
+                  type="checkbox"
+                  checked={(form.allowedUnits || []).includes(unit)}
+                  onChange={() => setForm(toggleUnitSelection(form, unit))}
+                />
+                {unit}
+              </label>
             ))}
-          </select>
-        </label>
+          </div>
+          <small className="muted">Select one or more units that are valid for this medicine.</small>
+        </div>
         <label>
           Purchase price
           <input
@@ -252,6 +273,10 @@ export default function InventoryListPage() {
 
   async function handleCreate(event) {
     event.preventDefault();
+    if (!form.allowedUnits?.length) {
+      setError('Select at least one allowed unit.');
+      return;
+    }
     setSaving(true);
     setError('');
     try {
@@ -268,6 +293,10 @@ export default function InventoryListPage() {
 
   async function handleUpdate(event) {
     event.preventDefault();
+    if (!form.allowedUnits?.length) {
+      setError('Select at least one allowed unit.');
+      return;
+    }
     if (!modificationReason.trim()) {
       setError('Modification reason is required before saving inventory changes.');
       return;
@@ -364,7 +393,7 @@ export default function InventoryListPage() {
                 <th>Batch</th>
                 <th>Expiry</th>
                 <th>Supplier</th>
-                <th>Unit</th>
+                <th>Allowed units</th>
                 <th>Cost Price</th>
                 <th>Selling Price</th>
                 <th>Qty</th>
@@ -378,7 +407,7 @@ export default function InventoryListPage() {
                   <td>{item.batchNumber}</td>
                   <td>{item.expiryDate}</td>
                   <td>{item.supplier}</td>
-                  <td>{item.unitType || '-'}</td>
+                  <td>{(item.allowedUnits || [item.unitType]).filter(Boolean).join(', ') || '-'}</td>
                    <td>{item.purchasePrice}</td>
                    <td>{item.sellingPrice}</td>
                    <td>{item.quantity}</td>
@@ -466,7 +495,7 @@ export default function InventoryListPage() {
               <span><strong>Batch</strong>{viewingItem.batchNumber}</span>
               <span><strong>Expiry</strong>{viewingItem.expiryDate}</span>
               <span><strong>Supplier</strong>{viewingItem.supplier}</span>
-              <span><strong>Unit</strong>{viewingItem.unitType || '-'}</span>
+              <span><strong>Allowed units</strong>{(viewingItem.allowedUnits || [viewingItem.unitType]).filter(Boolean).join(', ') || '-'}</span>
               <span><strong>Purchase price</strong>{viewingItem.purchasePrice}</span>
               <span><strong>Selling price</strong>{viewingItem.sellingPrice}</span>
               <span><strong>Profit / unit</strong>{(Number(viewingItem.sellingPrice || 0) - Number(viewingItem.purchasePrice || 0)).toFixed(2)}</span>

@@ -6,6 +6,8 @@ import jakarta.validation.constraints.Min;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.LinkedHashSet;
+import java.util.Set;
 
 @Entity
 @Table(
@@ -44,6 +46,14 @@ public class Medicine {
 
     @Column(nullable = false, length = 50)
     private String unitType = "tablet";
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(
+            name = "medicine_allowed_units",
+            joinColumns = @JoinColumn(name = "medicine_id")
+    )
+    @Column(name = "unit_type", nullable = false, length = 50)
+    private Set<String> allowedUnits = new LinkedHashSet<>();
 
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal purchasePrice;
@@ -115,6 +125,14 @@ public class Medicine {
 
     public void setUnitType(String unitType) {
         this.unitType = unitType;
+    }
+
+    public Set<String> getAllowedUnits() {
+        return allowedUnits;
+    }
+
+    public void setAllowedUnits(Set<String> allowedUnits) {
+        this.allowedUnits = allowedUnits;
     }
 
     public BigDecimal getPurchasePrice() {

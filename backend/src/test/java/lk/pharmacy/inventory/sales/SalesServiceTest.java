@@ -28,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -120,6 +121,8 @@ class SalesServiceTest {
         med.setBatchNumber("B001");
         med.setExpiryDate(LocalDate.now().plusMonths(6));
         med.setSupplier("ABC Pharma");
+        med.setUnitType("tablet");
+        med.setAllowedUnits(new LinkedHashSet<>(Set.of("tablet", "card")));
         med.setPurchasePrice(new BigDecimal("20.00"));
         med.setSellingPrice(new BigDecimal("30.00"));
         med.setQuantity(100);
@@ -128,7 +131,7 @@ class SalesServiceTest {
         authenticate(employer, pharmacy.getId());
 
         CreateSaleRequest request = new CreateSaleRequest(
-                List.of(new SaleItemRequest(med.getId(), med.getName(), 2, "tablets", null, false, "1 tablet per day (morning)", null, null)),
+                List.of(new SaleItemRequest(med.getId(), med.getName(), 2, "tablet", null, false, "1 tablet per day (morning)", null, null)),
                 new BigDecimal("10.00"),
                 "Kamal",
                 "0771234567"
@@ -138,7 +141,7 @@ class SalesServiceTest {
 
         Assertions.assertEquals(new BigDecimal("60.00"), sale.totalBeforeDiscount());
         Assertions.assertEquals(new BigDecimal("50.00"), sale.totalAmount());
-        Assertions.assertEquals("tablets", sale.items().get(0).unitType());
+        Assertions.assertEquals("tablet", sale.items().get(0).unitType());
         Assertions.assertEquals("1 tablet per day (morning)", sale.items().get(0).dosageInstruction());
         Assertions.assertEquals(98, medicineRepository.findById(med.getId()).orElseThrow().getQuantity());
     }
@@ -163,6 +166,8 @@ class SalesServiceTest {
         med.setBatchNumber("B090");
         med.setExpiryDate(LocalDate.now().plusMonths(12));
         med.setSupplier("Medi House");
+        med.setUnitType("capsule");
+        med.setAllowedUnits(new LinkedHashSet<>(Set.of("capsule")));
         med.setPurchasePrice(new BigDecimal("50.00"));
         med.setSellingPrice(new BigDecimal("80.00"));
         med.setQuantity(40);
@@ -171,7 +176,7 @@ class SalesServiceTest {
         authenticate(employer, pharmacy.getId());
 
         salesService.createSale(new CreateSaleRequest(
-                List.of(new SaleItemRequest(med.getId(), med.getName(), 2, "capsules", null, false, "2 tablets per day (morning and evening after food)", null, null)),
+                List.of(new SaleItemRequest(med.getId(), med.getName(), 2, "capsule", null, false, "2 tablets per day (morning and evening after food)", null, null)),
                 new BigDecimal("20.00"),
                 null,
                 null
@@ -205,6 +210,8 @@ class SalesServiceTest {
         med.setBatchNumber("B099");
         med.setExpiryDate(LocalDate.now().plusMonths(10));
         med.setSupplier("ABC Pharma");
+        med.setUnitType("tablet");
+        med.setAllowedUnits(new LinkedHashSet<>(Set.of("tablet")));
         med.setPurchasePrice(new BigDecimal("30.00"));
         med.setSellingPrice(new BigDecimal("45.00"));
         med.setQuantity(30);
@@ -214,7 +221,7 @@ class SalesServiceTest {
 
         ApiException ex = Assertions.assertThrows(ApiException.class, () ->
                 salesService.createSale(new CreateSaleRequest(
-                        List.of(new SaleItemRequest(med.getId(), med.getName(), 1, "tablets", new BigDecimal("40.00"), false, "1 tablet per day (morning)", null, null)),
+                        List.of(new SaleItemRequest(med.getId(), med.getName(), 1, "tablet", new BigDecimal("40.00"), false, "1 tablet per day (morning)", null, null)),
                         BigDecimal.ZERO,
                         null,
                         null
@@ -222,6 +229,86 @@ class SalesServiceTest {
         );
 
         Assertions.assertTrue(ex.getMessage().contains("not allowed"));
+    }
+
+    @Test
+    void shouldRejectUnitNotConfiguredForMedicine() {
+        Tenant tenant = ensureTenant();
+        Pharmacy pharmacy = ensurePharmacy(tenant);
+        User employer = new User();
+        employer.setTenant(tenant);
+        employer.setUsername("staff4");
+        employer.setPasswordHash(passwordEncoder.encode("pass123"));
+        employer.setRoles(Set.of(Role.BILLING));
+        employer.setDefaultPharmacy(pharmacy);
+        employer.getAssignedPharmacies().add(pharmacy);
+        userRepository.save(employer);
+
+        Medicine med = new Medicine();
+        med.setTenant(tenant);
+        med.setPharmacy(pharmacy);
+        med.setName("Amoxicillin");
+        med.setBatchNumber("B120");
+        med.setExpiryDate(LocalDate.now().plusMonths(8));
+        med.setSupplier("ABC Pharma");
+        med.setUnitType("tablet");
+        med.setAllowedUnits(new LinkedHashSet<>(Set.of("tablet", "box")));
+        med.setPurchasePrice(new BigDecimal("10.00"));
+        med.setSellingPrice(new BigDecimal("15.00"));
+        med.setQuantity(20);
+        medicineRepository.save(med);
+
+        authenticate(employer, pharmacy.getId());
+
+        ApiException ex = Assertions.assertThrows(ApiException.class, () ->
+                salesService.createSale(new CreateSaleRequest(
+                        List.of(new SaleItemRequest(med.getId(), med.getName(), 1, "bottle", null, false, "Take once daily", null, null)),
+                        BigDecimal.ZERO,
+                        null,
+                        null
+                ))
+        );
+
+        Assertions.assertTrue(ex.getMessage().contains("Invalid unit"));
+    }
+
+    @Test
+    void shouldAcceptUnitWhenAllowedUnitStoredWithDifferentCase() {
+        Tenant tenant = ensureTenant();
+        Pharmacy pharmacy = ensurePharmacy(tenant);
+        User employer = new User();
+        employer.setTenant(tenant);
+        employer.setUsername("staff5");
+        employer.setPasswordHash(passwordEncoder.encode("pass123"));
+        employer.setRoles(Set.of(Role.BILLING));
+        employer.setDefaultPharmacy(pharmacy);
+        employer.getAssignedPharmacies().add(pharmacy);
+        userRepository.save(employer);
+
+        Medicine med = new Medicine();
+        med.setTenant(tenant);
+        med.setPharmacy(pharmacy);
+        med.setName("Azithromycin");
+        med.setBatchNumber("B130");
+        med.setExpiryDate(LocalDate.now().plusMonths(8));
+        med.setSupplier("ABC Pharma");
+        med.setUnitType("Tablet");
+        med.setAllowedUnits(new LinkedHashSet<>(Set.of(" Tablet ", "BOX")));
+        med.setPurchasePrice(new BigDecimal("10.00"));
+        med.setSellingPrice(new BigDecimal("15.00"));
+        med.setQuantity(20);
+        medicineRepository.save(med);
+
+        authenticate(employer, pharmacy.getId());
+
+        SaleBillResponse sale = salesService.createSale(new CreateSaleRequest(
+                List.of(new SaleItemRequest(med.getId(), med.getName(), 1, "tablet", null, false, "Take once daily", null, null)),
+                BigDecimal.ZERO,
+                null,
+                null
+        ));
+
+        Assertions.assertEquals("tablet", sale.items().get(0).unitType());
     }
 }
 

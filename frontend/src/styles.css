@@ -399,6 +399,10 @@ button.icon-btn:hover:not(:disabled) {
   background: #fff;
 }
 
+.billing-table-wrap {
+  overflow-y: visible;
+}
+
 table {
   width: 100%;
   border-collapse: separate;
@@ -503,14 +507,17 @@ td select {
 
 .medicine-search-wrap {
   position: relative;
+  min-width: 260px;
 }
 
 .medicine-suggestions {
   position: absolute;
   top: calc(100% + 6px);
   left: 0;
-  right: 0;
-  z-index: 5;
+  min-width: 100%;
+  width: max-content;
+  max-width: min(560px, 80vw);
+  z-index: 20;
   max-height: 220px;
   overflow: auto;
   display: grid;

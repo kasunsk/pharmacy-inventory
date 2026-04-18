@@ -178,8 +178,8 @@ export default function App() {
               <span className="brand-mark" aria-hidden="true">Rx</span>
             )}
             <div>
-              <h1>Pharmacy Management System</h1>
-              <small>{session?.selectedPharmacyName || session.username}</small>
+              <h1>{session?.selectedPharmacyName || 'Select pharmacy'}</h1>
+              <small>{session.username}</small>
             </div>
           </div>
           <nav aria-label="Main navigation">

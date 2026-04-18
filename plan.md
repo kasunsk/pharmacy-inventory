@@ -7,6 +7,8 @@ Build a tenant-aware Pharmacy Management System that is:
 - Easy to scale to multiple pharmacy organizations (tenant lifecycle + feature flags)
 - Maintainable (service-layer rules, thin controllers, synced docs)
 
+---
+
 ## 2) Current Functional Scope
 - **Authentication & Authorization**
   - `username@tenant` login for tenant users
@@ -21,15 +23,20 @@ Build a tenant-aware Pharmacy Management System that is:
 - **Pharmacy Operations**
   - inventory CRUD + alerts (role-gated: INVENTORY role required for write)
   - billing + transaction history + analytics
-  - user management per tenant
+  - user management per tenant (`/employees`)
   - AI Assistant (per-tenant toggle)
 
+---
+
 ## 3) Architecture State
-- **Presentation Layer**: Spring REST controllers + React pages
-- **Business Layer**: `AuthService`, `TenantService`, `InventoryService`, `SalesService`, `EmployeeService`
-- **Data Layer**: JPA entities/repositories with tenant-aware queries
-- **Security Model**: JWT contains username + optional tenantId (null for super admin)
+- **Presentation Layer**: Spring REST controllers + React (Vite) pages
+- **Business Layer**: `AuthService`, `TenantService`, `InventoryService`, `SalesService`, `EmployeeService`, `AiAssistantService`
+- **Data Layer**: JPA entities/repositories with tenant-aware queries; schema managed entirely by Flyway
+- **Security Model**: JWT contains username + optional tenantId (null for super admin); pharmacy selected via `X-Pharmacy-Id` header
 - **Admin Portal**: Separate UI layout at `/admin-portal` for Super Admin operations
+- **Runtime**: Backend on port `8080` (Spring Boot), Frontend on port `5173` (Vite)
+
+---
 
 ## 4) Major Changes Delivered
 
@@ -62,9 +69,7 @@ Build a tenant-aware Pharmacy Management System that is:
 - Empty state shown (no error) when no data exists for a tenant
 
 ### Wave E - UX Polish & Data Integrity
-- Gender input changed from free-text to `MALE`/`FEMALE` dropdown for:
-  - Tenant user creation
-  - Tenant admin creation (admin portal)
+- Gender input changed from free-text to `MALE`/`FEMALE` dropdown for tenant user and tenant admin creation
 - Profile update success feedback (toast/snackbar: "Profile updated successfully")
 - Removed "Profit / Unit" column from inventory table
 - User roles/privileges hidden from profile and general UI; visible only in User Management table
@@ -73,54 +78,85 @@ Build a tenant-aware Pharmacy Management System that is:
 
 ### Wave F - Audit Trail & Admin Portal Enhancements
 - Dedicated "Audit Trail" tab in admin portal
-- Tracks:
-  - User login history
-  - Inventory CREATE / UPDATE / DELETE (with before/after values)
-  - Module feature usage
-  - AI Assistant usage (per tenant, per user)
+- Tracks: user login history, inventory CREATE/UPDATE/DELETE (with before/after values), module feature usage, AI Assistant usage (per tenant, per user)
 - Audit record fields: `user_id`, `tenant_id`, `action_type`, `module`, `timestamp`, `metadata` (JSON)
 - Audit dashboard includes filters (date, tenant, user, module), search, summary cards
 - Audit trail monitoring charts for activity trends
 
 ### Wave G - Flyway Migration Refactor (Production-Grade Initialization)
-- Removed runtime hardcoded seeding from application startup path (`DataInitializer` no longer performs bootstrap writes)
-- Added Flyway schema migration pipeline:
-  - `db/migration/V1__create_schema.sql` -> creates core schema objects
-  - `db/migration/V2__seed_super_admin.sql` -> idempotent base super-admin seed
-- Added optional demo seed migration:
-  - `db/demo/V3__seed_demo_tenant_data.sql` -> DEMO tenant/pharmacies/admin/inventory
-- Added property-driven migration location control (`app.demo-data.enabled`) via Flyway customizer
-- Switched JPA `ddl-auto` to `none` so schema lifecycle is owned by Flyway only
-- Validation performed with integration tests and startup test for both default and demo-disabled mode
+- Removed runtime hardcoded seeding (`DataInitializer` no longer performs bootstrap writes)
+- Flyway migration pipeline:
+  - `V1__create_schema.sql` → creates core schema objects
+  - `V2__seed_super_admin.sql` → idempotent base super-admin seed
+  - `V3__seed_demo_tenant_data.sql` → DEMO tenant/pharmacies/admin/inventory (optional)
+  - `V4__medicine_allowed_units.sql` → allowed units column and seed data
+- Property-driven migration location control (`app.demo-data.enabled`) via Flyway customizer
+- JPA `ddl-auto` set to `none`; schema lifecycle fully owned by Flyway
+- Validated with integration tests for both demo-enabled and demo-disabled startup modes
 
-## 5) Recent Incident Notes
-- **Issue:** `POST /inventory` returned 500 (`ByteBuddyInterceptor` serialization failure)
-- **Root Cause:** Jackson attempted to serialize lazy `tenant` proxy from `Medicine`
-- **Fix:** Annotated `Medicine.tenant`/getter with `@JsonIgnore` for JSON serialization
-- **Validation:** live login + create inventory + list inventory succeeded after patch
+### Wave H - Billing and Pharmacy Context Alignment
+- Header title reflects currently selected pharmacy name across tenant-user routes
+- Billing medicine search dropdown: on focus shows top 5, on typing expands to all matches
+- Discount model consolidated to bill-level `discountAmount` only (no line-level discount)
+- Inventory-configured `allowedUnits` drive billing unit dropdown options
+- Backend sales validation enforces requested unit against each medicine `allowedUnits`
+- Usage instructions persisted per sale line; visible in transaction details only
 
-- **Issue:** Tenant users redirected to admin portal after login
-- **Root Cause:** Frontend routing did not differentiate `SUPER_ADMIN` from tenant admin
-- **Fix:** Route guard checks role; only `SUPER_ADMIN` redirected to `/admin-portal`
+### Wave I - Full Stack Smoke Verification (April 2026)
+- End-to-end smoke test run against live backend (H2 in-memory, demo seed)
+- All core API endpoints confirmed passing:
 
-- **Issue:** 403 errors on inventory/transactions/users for tenant users
-- **Root Cause:** Tenant context not correctly extracted from JWT in some filter paths
-- **Fix:** Ensured tenant extraction from token applied consistently across all secured endpoints
+| Endpoint | Result |
+|---|---|
+| `POST /auth/login` | ✅ |
+| `GET /inventory` | ✅ |
+| `GET /inventory/{id}` | ✅ |
+| `GET /inventory/alerts/low-stock` | ✅ |
+| `GET /inventory/alerts/expiry` | ✅ |
+| `GET /inventory/alerts/summary` | ✅ |
+| `GET /sales/billing-medicines` | ✅ |
+| `POST /sales` | ✅ |
+| `GET /sales` | ✅ |
+| `GET /sales/summary?period=WEEK` | ✅ |
+| `GET /employees` | ✅ |
+
+- `POST /sales` previously listed as a known blocker — confirmed fully working end-to-end
+- Backend (port 8080) and frontend (port 5173) both confirmed running clean
+
+---
+
+## 5) Incident Log
+
+| # | Issue | Root Cause | Fix | Status |
+|---|---|---|---|---|
+| 1 | `POST /inventory` → 500 (`ByteBuddyInterceptor`) | Jackson serialized lazy `tenant` proxy on `Medicine` | `@JsonIgnore` on `Medicine.tenant` | ✅ Resolved |
+| 2 | Tenant users redirected to admin portal | Frontend route guard didn't differentiate `SUPER_ADMIN` | Role-checked redirect; only `SUPER_ADMIN` goes to `/admin-portal` | ✅ Resolved |
+| 3 | 403 on inventory/transactions/users for tenant users | Tenant context not extracted from JWT in some filter paths | Consistent tenant extraction across all secured endpoints | ✅ Resolved |
+| 4 | `POST /sales` suspected 500 | Stale log entry — no actual failure reproduced | Smoke test confirmed working (April 2026) | ✅ Resolved |
+
+---
 
 ## 6) Roadmap (Next)
 - Add optimistic locking for high-concurrency inventory updates
 - Move remaining map-based endpoints to typed response DTOs
-- Expand automated integration tests for tenant role matrix and inventory flows
+- Expand automated integration tests for tenant role matrix and full billing flows
 - Add export (CSV/PDF) for audit trail and analytics reports
 - Add tenant-level branding (logo, name in header)
-- Add Flyway migration test coverage for demo flag matrix (`true/false`) and migration idempotency checks
+- Add Flyway migration test coverage for demo flag matrix (`true/false`) and idempotency checks
 - Periodic Postman collection sync with current API contracts
+- Add `GET /sales/{transactionId}` to frontend transaction history reopen flow (verify wiring)
+- Consider pagination on `GET /inventory/alerts/low-stock` and `expiry` for large datasets
+
+---
 
 ## 7) Known Limitations
 - Audit trend charts are basic; advanced time-series visualizations are pending
 - Some backward-compatibility code paths remain for legacy tenant configurations
-- Postman collection and API docs may need updates after recent contract changes
+- Postman collection and API docs may need a sweep after Wave H contract changes
 - Legacy environments initialized outside Flyway may require one-time baseline verification before production rollout
+- H2 in-memory database used in development; production migration to PostgreSQL/MySQL not yet scripted
+
+---
 
 ## 8) Delivery Discipline
 - Keep tenant and role checks centralized in services/guards

@@ -6,6 +6,7 @@ import jakarta.validation.constraints.NotNull;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 
 public record UpdateMedicineRequest(
         @NotBlank String name,
@@ -13,6 +14,7 @@ public record UpdateMedicineRequest(
         @NotNull LocalDate expiryDate,
         @NotBlank String supplier,
         @NotBlank String unitType,
+        List<String> allowedUnits,
         @NotNull BigDecimal purchasePrice,
         @NotNull BigDecimal sellingPrice,
         @Min(0) int quantity,
@@ -25,6 +27,7 @@ public record UpdateMedicineRequest(
                 expiryDate,
                 supplier,
                 unitType,
+                allowedUnits,
                 purchasePrice,
                 sellingPrice,
                 quantity

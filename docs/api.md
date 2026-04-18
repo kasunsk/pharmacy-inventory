@@ -278,6 +278,7 @@ Also requires tenant inventory feature to be enabled.
   "expiryDate": "2027-01-31",
   "supplier": "Hemas Pharma",
   "unitType": "tablet",
+  "allowedUnits": ["tablet", "card"],
   "purchasePrice": 18.0,
   "sellingPrice": 25.0,
   "quantity": 150
@@ -286,6 +287,7 @@ Also requires tenant inventory feature to be enabled.
 
 Notes:
 - Batch number must be unique per tenant and pharmacy (`tenant_id + pharmacy_id + batch_number`).
+- `allowedUnits` defines valid billing units for that medicine; if omitted, backend falls back to `unitType`.
 - Duplicate batch returns a `400` error with a clear business message.
 
 ### Update Medicine
@@ -348,6 +350,11 @@ Requires role: `ADMIN` or `BILLING`
   ]
 }
 ```
+
+Notes:
+- `discountAmount` is bill-level (applied once to total), not per-line discount.
+- `unitType` in each item must be one of the medicine's configured `allowedUnits`.
+- `dosageInstruction`/`customDosageInstruction` are saved per line for transaction details.
 
 ### Transaction History
 

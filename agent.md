@@ -37,7 +37,7 @@ It supports inventory, billing, transaction history, file upload, and analytics.
 - Password hashing with BCrypt
 
 Default seed user:
-- Tenant admin: `admin@default` / `admin123`
+- Tenant admin: `admin@demo` / `admin@123`
 - Super admin: `super_admin` / `admin@123`
 
 ---
@@ -52,22 +52,23 @@ Default seed user:
 
 ### Inventory Management
 - Create, update, delete medicines
-- Track medicine name, batch, expiry, supplier, unit type, purchase/selling prices, quantity
+- Track medicine name, batch, expiry, supplier, unit type, allowed units, purchase/selling prices, quantity
 - Alerts:
   - Low stock
   - Upcoming expiry
-- Duplicate batch protection per tenant (`tenant_id + batch_number`)
+- Duplicate batch protection per tenant and pharmacy (`tenant_id + pharmacy_id + batch_number`)
 
 ### Billing Workflow
 - Create one sale with multiple medicine lines
 - Each line captures:
   - Medicine
-  - Unit (auto-loaded from inventory)
+  - Unit (must match inventory-configured allowed units)
   - Price per unit
   - Quantity
   - Usage instruction
   - Optional remark
-- Auto line total and overall totals
+- Auto line totals and bill-level totals
+- Discount is applied at bill level (`discountAmount`), not per line
 - Optional customer details (name, phone)
 - Stock validation before checkout
 - Automatic inventory deduction after successful sale
@@ -81,6 +82,7 @@ Default seed user:
   - Filter by sales person
   - Filter by date range
 - Open a past transaction and view full bill
+- Usage instructions are visible in transaction details and not shown in billing preview table
 
 ### Sales Analytics
 - Summary endpoint supports period views:
@@ -141,6 +143,8 @@ Detailed API examples are in `docs/api.md`.
 - Employee creation requires `gender` = `MALE` or `FEMALE`
 - `Medicine.tenant` is excluded from JSON serialization to prevent lazy-proxy response failures
 - `SaleItemRequest` now supports per-line `remark`
+- `CreateSaleRequest.discountAmount` is bill-level discount
+- Sale item `unitType` must be one of the medicine `allowedUnits`
 - `SaleBillItemResponse` now returns `remark`
 - `SaleBillResponse` now returns `salesPerson`
 - `SaleTransactionSummaryResponse` now returns `salesPerson` and `medicines`

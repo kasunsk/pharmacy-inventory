@@ -19,7 +19,10 @@ import java.math.BigDecimal;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.TemporalAdjusters;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -67,6 +70,12 @@ public class SalesService {
                 throw new ApiException("Insufficient stock for medicine: " + medicine.getName());
             }
 
+            String requestedUnit = normalizeUnit(itemRequest.unitType());
+            Set<String> allowedUnits = resolveAllowedUnits(medicine);
+            if (!allowedUnits.contains(requestedUnit)) {
+                throw new ApiException("Invalid unit for medicine: " + medicine.getName());
+            }
+
             boolean allowOverride = Boolean.TRUE.equals(itemRequest.allowPriceOverride());
             BigDecimal inventoryPrice = medicine.getSellingPrice();
             BigDecimal requestedPrice = itemRequest.pricePerUnit();
@@ -110,7 +119,7 @@ public class SalesService {
                     trimToNull(itemRequest.medicineName()) == null ? medicine.getName() : itemRequest.medicineName().trim()
             );
             saleItem.setQuantity(itemRequest.quantity());
-            saleItem.setUnitType(itemRequest.unitType().trim());
+            saleItem.setUnitType(requestedUnit);
             saleItem.setDosageInstruction(dosageInstruction);
             saleItem.setCustomDosageInstruction(customDosageInstruction);
             saleItem.setRemark(trimToNull(itemRequest.remark()));
@@ -218,6 +227,7 @@ public class SalesService {
                         medicine.getId(),
                         medicine.getName(),
                         medicine.getUnitType(),
+                        resolveAllowedUnits(medicine).stream().toList(),
                         medicine.getSellingPrice(),
                         medicine.getQuantity(),
                         medicine.getQuantity() > 0
@@ -345,6 +355,29 @@ public class SalesService {
             return null;
         }
         return value.trim();
+    }
+
+    private String normalizeUnit(String value) {
+        String trimmed = trimToNull(value);
+        if (trimmed == null) {
+            throw new ApiException("Unit type is required");
+        }
+        return trimmed.toLowerCase(Locale.ROOT);
+    }
+
+    private Set<String> resolveAllowedUnits(Medicine medicine) {
+        Set<String> resolved = new LinkedHashSet<>();
+        if (medicine.getAllowedUnits() != null) {
+            medicine.getAllowedUnits().stream()
+                    .map(this::trimToNull)
+                    .filter(value -> value != null)
+                    .map(this::normalizeUnit)
+                    .forEach(resolved::add);
+        }
+        if (resolved.isEmpty()) {
+            resolved.add(normalizeUnit(medicine.getUnitType()));
+        }
+        return resolved;
     }
 }
 

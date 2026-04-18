@@ -29,12 +29,14 @@ The system is designed for operational pharmacy workflows:
   - Tenant audit listing (`/admin-portal/tenants/audits`)
 - **Billing**
   - Row-based medicine entry
-  - Per-line discount (`%` or fixed amount)
+  - Final bill-level discount (`discountAmount`)
+  - Unit selection constrained by inventory-configured `allowedUnits`
   - Standardized usage instructions + optional custom
+  - Usage instructions persisted per line and shown in transaction details
   - Automatic inventory deduction and persisted transactions
 - **Inventory**
   - CRUD for medicines
-  - Unit type, cost price, selling price, quantity
+  - Unit type + `allowedUnits`, cost price, selling price, quantity
   - Derived profit per unit (UI)
   - Low-stock and expiry alerts
   - Alerts summary endpoint: `GET /inventory/alerts/summary`
@@ -107,10 +109,10 @@ sequenceDiagram
   participant TX as Sales Store
 
   UI->>API: POST /sales (line items)
-  API->>INV: Validate stock and prices
+  API->>INV: Validate stock, price rules, and allowed units
   API->>INV: Deduct quantities
   API->>TX: Save sale + sale items
-  API-->>UI: Bill response (transactionId, totals)
+  API-->>UI: Bill response (transactionId, bill-level totals)
 ```
 
 ## Folder Structure

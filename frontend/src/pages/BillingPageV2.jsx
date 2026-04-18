@@ -25,8 +25,6 @@ function emptyRow() {
     quantity: 1,
     unitType: '',
     sellingPrice: 0,
-    discountType: 'PERCENT',
-    discountValue: 0,
     usageInstruction: USAGE_OPTIONS[0].value,
     customUsageInstruction: '',
     remark: ''
@@ -45,6 +43,8 @@ export default function BillingPageV2() {
   const [completionAction, setCompletionAction] = useState('');
   const [deliveryValue, setDeliveryValue] = useState('');
   const [completionMessage, setCompletionMessage] = useState('');
+  const [billDiscount, setBillDiscount] = useState('0');
+  const [openSuggestionsRowIndex, setOpenSuggestionsRowIndex] = useState(null);
 
   const inventoryById = useMemo(() => new Map(inventory.map((item) => [String(item.id), item])), [inventory]);
 
@@ -53,35 +53,24 @@ export default function BillingPageV2() {
       const quantity = Number(row.quantity || 0);
       const sellingPrice = Number(row.sellingPrice || 0);
       const subTotal = round2(quantity * sellingPrice);
-      const rawDiscount = Number(row.discountValue || 0);
-      const discountAmount = row.discountType === 'PERCENT'
-        ? round2(subTotal * (rawDiscount / 100))
-        : round2(rawDiscount);
-      const clampedDiscount = Math.min(Math.max(discountAmount, 0), subTotal);
-      const total = round2(subTotal - clampedDiscount);
       return {
         ...row,
         quantity,
         sellingPrice,
         subTotal,
-        discountAmount: clampedDiscount,
-        total,
-        effectiveUnitPrice: quantity > 0 ? round2(total / quantity) : 0
+        total: subTotal,
+        effectiveUnitPrice: sellingPrice
       };
     });
   }, [rows]);
 
   const totals = useMemo(() => {
-    return calculatedRows.reduce(
-      (acc, row) => {
-        acc.subTotal += row.subTotal;
-        acc.discount += row.discountAmount;
-        acc.payable += row.total;
-        return acc;
-      },
-      { subTotal: 0, discount: 0, payable: 0 }
-    );
-  }, [calculatedRows]);
+    const subTotal = calculatedRows.reduce((acc, row) => acc + row.subTotal, 0);
+    const parsedDiscount = Number(billDiscount || 0);
+    const discount = Math.min(Math.max(parsedDiscount, 0), subTotal);
+    const payable = round2(subTotal - discount);
+    return { subTotal, discount, payable };
+  }, [calculatedRows, billDiscount]);
 
   useEffect(() => {
     loadBillingMedicines();
@@ -117,7 +106,8 @@ export default function BillingPageV2() {
     if (patch.medicineId !== undefined) {
       const selected = inventoryById.get(String(next[index].medicineId));
       next[index].medicineQuery = selected?.name || next[index].medicineQuery;
-      next[index].unitType = selected?.unitType || '';
+      const allowedUnits = getAllowedUnits(selected);
+      next[index].unitType = allowedUnits[0] || '';
       next[index].sellingPrice = Number(selected?.sellingPrice || 0);
     }
 
@@ -155,16 +145,22 @@ export default function BillingPageV2() {
       if (selected && row.quantity > Number(selected.quantity)) {
         throw new Error(`${label}: quantity exceeds available stock (${selected.quantity}).`);
       }
-      if (row.discountType === 'PERCENT' && Number(row.discountValue) > 100) {
-        throw new Error(`${label}: discount percentage must be 0-100.`);
-      }
-      if (row.discountValue < 0) {
-        throw new Error(`${label}: discount cannot be negative.`);
+      const allowedUnits = getAllowedUnits(selected);
+      if (!row.unitType || !allowedUnits.includes(row.unitType)) {
+        throw new Error(`${label}: select a valid unit for the medicine.`);
       }
       if (row.usageInstruction === 'CUSTOM' && !row.customUsageInstruction.trim()) {
         throw new Error(`${label}: custom instruction is required.`);
       }
     });
+
+    const parsedDiscount = Number(billDiscount || 0);
+    if (parsedDiscount < 0) {
+      throw new Error('Final discount cannot be negative.');
+    }
+    if (parsedDiscount > totals.subTotal) {
+      throw new Error('Final discount cannot exceed subtotal.');
+    }
   }
 
   function mapUsage(row) {
@@ -183,12 +179,36 @@ export default function BillingPageV2() {
 
   function filteredMedicines(query) {
     const text = query.trim().toLowerCase();
-    if (text.length < 2) {
-      return [];
+    const sorted = [...inventory].sort((a, b) => {
+      const aName = a.name.toLowerCase();
+      const bName = b.name.toLowerCase();
+      const aOut = Number(a.quantity) <= 0;
+      const bOut = Number(b.quantity) <= 0;
+      if (aOut !== bOut) {
+        return aOut ? 1 : -1;
+      }
+      if (text) {
+        const aStarts = aName.startsWith(text);
+        const bStarts = bName.startsWith(text);
+        if (aStarts !== bStarts) {
+          return aStarts ? -1 : 1;
+        }
+      }
+      return aName.localeCompare(bName);
+    });
+
+    if (!text) {
+      return sorted.slice(0, 5);
     }
-    return inventory
-      .filter((item) => item.name.toLowerCase().includes(text))
-      .slice(0, 8);
+
+    return sorted.filter((item) => item.name.toLowerCase().includes(text));
+  }
+
+  function getAllowedUnits(medicine) {
+    const units = Array.isArray(medicine?.allowedUnits) && medicine.allowedUnits.length
+      ? medicine.allowedUnits
+      : [medicine?.unitType].filter(Boolean);
+    return units;
   }
 
   function selectMedicineFromSearch(index, medicine) {
@@ -196,6 +216,7 @@ export default function BillingPageV2() {
       medicineId: String(medicine.id),
       medicineQuery: medicine.name
     });
+    setOpenSuggestionsRowIndex(null);
   }
 
   async function submitSale(event) {
@@ -207,7 +228,7 @@ export default function BillingPageV2() {
       const payload = {
         customerName: customerName || null,
         customerPhone: customerPhone || null,
-        discountAmount: 0,
+        discountAmount: Number(billDiscount || 0),
         items: calculatedRows.map((row) => {
           const selected = inventoryById.get(String(row.medicineId));
           const usage = mapUsage(row);
@@ -230,6 +251,7 @@ export default function BillingPageV2() {
       setDeliveryValue('');
       setCompletionMessage('');
       setRows([emptyRow()]);
+      setBillDiscount('0');
       setCustomerName('');
       setCustomerPhone('');
       await loadBillingMedicines();
@@ -295,7 +317,7 @@ export default function BillingPageV2() {
           </label>
         </div>
 
-        <div className="table-wrap">
+        <div className="table-wrap billing-table-wrap">
           <table>
             <thead>
               <tr>
@@ -303,7 +325,6 @@ export default function BillingPageV2() {
                 <th>Unit</th>
                 <th>Selling price / unit</th>
                 <th>Quantity</th>
-                <th>Discount</th>
                 <th>Total price</th>
                 <th>Usage instructions</th>
                 <th>Remark</th>
@@ -318,10 +339,19 @@ export default function BillingPageV2() {
                       <input
                         required
                         value={row.medicineQuery}
-                        onChange={(event) => updateRow(index, { medicineQuery: event.target.value })}
-                        placeholder="Type at least 2 characters"
+                        onChange={(event) => {
+                          updateRow(index, { medicineQuery: event.target.value });
+                          setOpenSuggestionsRowIndex(index);
+                        }}
+                        onFocus={() => setOpenSuggestionsRowIndex(index)}
+                        onBlur={() => {
+                          setTimeout(() => {
+                            setOpenSuggestionsRowIndex((current) => (current === index ? null : current));
+                          }, 120);
+                        }}
+                        placeholder="Click or type to search medicines"
                       />
-                      {row.medicineQuery.trim().length >= 2 && !row.medicineId && (
+                      {openSuggestionsRowIndex === index && (
                         <div className="medicine-suggestions" role="listbox">
                           {filteredMedicines(row.medicineQuery).map((item) => {
                             const out = Number(item.quantity) <= 0;
@@ -334,18 +364,32 @@ export default function BillingPageV2() {
                                 onClick={() => !out && selectMedicineFromSearch(index, item)}
                                 disabled={out}
                               >
-                                {item.name} (stock: {item.quantity}){out ? ' - Out of stock' : ''}
+                                 {item.name} (stock: {item.quantity}){out ? ' - Out of stock' : ''}
                               </button>
                             );
                           })}
                           {filteredMedicines(row.medicineQuery).length === 0 && (
                             <p className="muted">No matching medicines found.</p>
                           )}
+                          {!row.medicineQuery.trim() && (
+                            <p className="muted">Showing 5 medicines. Start typing to see all matching results.</p>
+                          )}
                         </div>
                       )}
                     </div>
                   </td>
-                  <td><input value={row.unitType} readOnly /></td>
+                  <td>
+                    <select
+                      value={row.unitType}
+                      disabled={!row.medicineId}
+                      onChange={(event) => updateRow(index, { unitType: event.target.value })}
+                    >
+                      {!row.unitType && <option value="">Select unit</option>}
+                      {getAllowedUnits(inventoryById.get(String(row.medicineId))).map((unit) => (
+                        <option key={unit} value={unit}>{unit}</option>
+                      ))}
+                    </select>
+                  </td>
                   <td><input value={money(row.sellingPrice)} readOnly /></td>
                   <td>
                     <input
@@ -354,24 +398,6 @@ export default function BillingPageV2() {
                       value={row.quantity}
                       onChange={(event) => updateRow(index, { quantity: event.target.value })}
                     />
-                  </td>
-                  <td>
-                    <div className="discount-control">
-                      <select
-                        value={row.discountType}
-                        onChange={(event) => updateRow(index, { discountType: event.target.value })}
-                      >
-                        <option value="PERCENT">%</option>
-                        <option value="FIXED">LKR</option>
-                      </select>
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={row.discountValue}
-                        onChange={(event) => updateRow(index, { discountValue: event.target.value })}
-                      />
-                    </div>
                   </td>
                   <td className="strong amount-cell">{money(row.total)}</td>
                   <td>
@@ -410,6 +436,16 @@ export default function BillingPageV2() {
 
         <div className="billing-footer">
           <button type="button" className="plus-btn" onClick={addRow} title="Add medicine row">+</button>
+          <label className="discount-input">
+            Final bill discount (LKR)
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={billDiscount}
+              onChange={(event) => setBillDiscount(event.target.value)}
+            />
+          </label>
           <div className="totals-box">
             <span>Subtotal: {money(totals.subTotal)}</span>
             <span>Discount: {money(totals.discount)}</span>
@@ -437,7 +473,6 @@ export default function BillingPageV2() {
                   <th>Medicine</th>
                   <th>Qty</th>
                   <th>Unit</th>
-                  <th>Usage</th>
                   <th>Remark</th>
                   <th>Price/Unit</th>
                   <th>Line Total</th>
@@ -449,7 +484,6 @@ export default function BillingPageV2() {
                     <td>{item.medicineName}</td>
                     <td>{item.quantity}</td>
                     <td>{item.unitType}</td>
-                    <td>{item.dosageInstruction === 'CUSTOM' ? item.customDosageInstruction : item.dosageInstruction}</td>
                     <td>{item.remark || '-'}</td>
                     <td>{money(item.pricePerUnit)}</td>
                     <td>{money(item.lineTotal)}</td>
