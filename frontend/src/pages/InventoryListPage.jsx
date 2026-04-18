@@ -196,6 +196,21 @@ export default function InventoryListPage() {
   const [alertsLoading, setAlertsLoading] = useState(false);
   const [alertsError, setAlertsError] = useState('');
 
+  // Detect whether the edit form has any actual changes vs the original item.
+  // allowedUnits is compared order-independently via sorted join.
+  const isDirty = useMemo(() => {
+    if (!editingItem) return true; // new-item form is always submittable
+    const original = toForm(editingItem);
+    const scalarKeys = ['name', 'batchNumber', 'expiryDate', 'supplier', 'purchasePrice', 'sellingPrice', 'quantity'];
+    for (const key of scalarKeys) {
+      if (String(form[key] ?? '') !== String(original[key] ?? '')) return true;
+    }
+    const sortedCurrent = [...(form.allowedUnits || [])].sort().join(',');
+    const sortedOriginal = [...(original.allowedUnits || [])].sort().join(',');
+    if (sortedCurrent !== sortedOriginal) return true;
+    return false;
+  }, [form, editingItem]);
+
   const filtered = useMemo(() => {
     const value = filter.trim().toLowerCase();
     if (!value) {
@@ -473,7 +488,7 @@ export default function InventoryListPage() {
             />
             <div className="modal-actions">
               <button type="button" className="ghost" onClick={closeModal} disabled={saving}>Cancel</button>
-              <button type="submit" disabled={saving || (editingItem && !modificationReason.trim())}>
+              <button type="submit" disabled={saving || (editingItem && (!isDirty || !modificationReason.trim()))}>
                 {saving ? 'Saving...' : editingItem ? 'Save Changes' : 'Save Inventory'}
               </button>
             </div>
