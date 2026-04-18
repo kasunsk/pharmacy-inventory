@@ -36,6 +36,13 @@ Response:
   "tenantId": 1,
   "tenantCode": "DEFAULT",
   "tenantName": "Default Pharmacy",
+  "tenantHasLogo": true,
+  "selectedPharmacyId": 10,
+  "selectedPharmacyName": "Main Pharmacy",
+  "requiresPharmacySelection": false,
+  "availablePharmacies": [
+    { "id": 10, "code": "MAIN", "name": "Main Pharmacy", "enabled": true, "hasLogo": true }
+  ],
   "billingEnabled": true,
   "transactionsEnabled": true,
   "inventoryEnabled": true,
@@ -45,6 +52,36 @@ Response:
 ```
 
 For `SUPER_ADMIN`, tenant fields are `null` and feature flags are `false`.
+
+### Select Active Pharmacy
+
+`POST /auth/pharmacy/select`
+
+```json
+{
+  "pharmacyId": 10
+}
+```
+
+Returns a refreshed login payload with updated JWT and selected pharmacy.
+
+### Set My Default Pharmacy
+
+`POST /auth/pharmacy/default`
+
+```json
+{
+  "pharmacyId": 10
+}
+```
+
+## Pharmacy Context
+
+### List Pharmacies For Current User
+
+`GET /pharmacies/my`
+
+Returns pharmacies accessible to the signed-in tenant user.
 
 ## Admin Portal (SUPER_ADMIN)
 
@@ -100,6 +137,55 @@ All endpoints below require `ROLE_SUPER_ADMIN`.
 
 Compatibility alias for admin portal endpoints is also available under `/super-admin/tenants`.
 
+### List Tenant Pharmacies
+
+`GET /admin-portal/tenants/{tenantId}/pharmacies?enabledOnly=false`
+
+### Create Tenant Pharmacy
+
+`POST /admin-portal/tenants/{tenantId}/pharmacies`
+
+```json
+{
+  "code": "B01",
+  "name": "Borella Branch"
+}
+```
+
+### Update Pharmacy Status
+
+`PUT /admin-portal/tenants/{tenantId}/pharmacies/{pharmacyId}/status`
+
+```json
+{
+  "enabled": true
+}
+```
+
+### Upload Tenant Logo
+
+`POST /admin-portal/tenants/{tenantId}/logo` (multipart form-data, `file`)
+
+### View Tenant Logo
+
+`GET /admin-portal/tenants/{tenantId}/logo`
+
+### Upload Pharmacy Logo
+
+`POST /admin-portal/tenants/{tenantId}/pharmacies/{pharmacyId}/logo` (multipart form-data, `file`)
+
+### View Pharmacy Logo
+
+`GET /admin-portal/tenants/{tenantId}/pharmacies/{pharmacyId}/logo`
+
+### Current Tenant Logo (Authenticated Tenant User)
+
+`GET /branding/tenant/logo`
+
+### Current Pharmacy Logo (Authenticated Tenant User)
+
+`GET /branding/pharmacy/logo`
+
 ## Users (Admin)
 
 All `/employees` endpoints require `ROLE_ADMIN`.
@@ -135,6 +221,8 @@ Response:
   "username": "cashier1",
   "password": "pass123",
   "roles": ["BILLING", "TRANSACTIONS"],
+  "pharmacyIds": [10, 11],
+  "defaultPharmacyId": 10,
   "gender": "FEMALE"
 }
 ```
@@ -148,6 +236,8 @@ Response:
 ```json
 {
   "roles": ["INVENTORY"],
+  "pharmacyIds": [10],
+  "defaultPharmacyId": 10,
   "enabled": true
 }
 ```
@@ -190,7 +280,7 @@ Also requires tenant inventory feature to be enabled.
 ```
 
 Notes:
-- Batch number must be unique per tenant (`tenant_id + batch_number`).
+- Batch number must be unique per tenant and pharmacy (`tenant_id + pharmacy_id + batch_number`).
 - Duplicate batch returns a `400` error with a clear business message.
 
 ### Update Medicine

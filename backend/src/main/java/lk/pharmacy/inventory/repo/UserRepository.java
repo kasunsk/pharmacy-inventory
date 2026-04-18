@@ -23,6 +23,14 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Page<User> findByTenant_Id(Long tenantId, Pageable pageable);
     List<User> findByTenantIsNull();
     Optional<User> findByIdAndTenant_Id(Long id, Long tenantId);
+    @Query("select distinct u from User u left join fetch u.assignedPharmacies left join fetch u.defaultPharmacy where u.id = :id")
+    Optional<User> findByIdWithPharmacies(Long id);
+    @Query("select distinct u from User u left join fetch u.assignedPharmacies left join fetch u.defaultPharmacy where u.username = :username and u.tenant.id = :tenantId")
+    Optional<User> findByUsernameAndTenant_IdWithPharmacies(String username, Long tenantId);
+    @Query("select distinct u from User u left join fetch u.assignedPharmacies left join fetch u.defaultPharmacy where u.username = :username and lower(u.tenant.code) = lower(:tenantCode)")
+    Optional<User> findByUsernameAndTenant_CodeIgnoreCaseWithPharmacies(String username, String tenantCode);
+    @Query("select distinct u from User u left join fetch u.assignedPharmacies left join fetch u.defaultPharmacy where u.id = :id and u.tenant.id = :tenantId")
+    Optional<User> findByIdAndTenant_IdWithPharmacies(Long id, Long tenantId);
     boolean existsByUsernameAndTenant_Id(String username, Long tenantId);
     long countByTenant_Id(Long tenantId);
 }

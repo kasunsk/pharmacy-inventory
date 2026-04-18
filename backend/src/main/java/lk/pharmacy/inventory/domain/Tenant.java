@@ -5,6 +5,9 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.Lob;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
 import java.time.Instant;
@@ -43,6 +46,20 @@ public class Tenant {
 
     @Column(nullable = false)
     private boolean aiAssistantEnabled = true;
+
+    @ManyToOne
+    @JoinColumn(name = "default_pharmacy_id")
+    private Pharmacy defaultPharmacy;
+
+    @Column(length = 255)
+    private String logoFileName;
+
+    @Column(length = 120)
+    private String logoContentType;
+
+    @Lob
+    @Column(columnDefinition = "BYTEA")
+    private byte[] logoData;
 
     public Long getId() {
         return id;
@@ -114,6 +131,38 @@ public class Tenant {
 
     public void setAiAssistantEnabled(boolean aiAssistantEnabled) {
         this.aiAssistantEnabled = aiAssistantEnabled;
+    }
+
+    public Pharmacy getDefaultPharmacy() {
+        return defaultPharmacy;
+    }
+
+    public void setDefaultPharmacy(Pharmacy defaultPharmacy) {
+        this.defaultPharmacy = defaultPharmacy;
+    }
+
+    public String getLogoFileName() {
+        return logoFileName;
+    }
+
+    public void setLogoFileName(String logoFileName) {
+        this.logoFileName = logoFileName;
+    }
+
+    public String getLogoContentType() {
+        return logoContentType;
+    }
+
+    public void setLogoContentType(String logoContentType) {
+        this.logoContentType = logoContentType;
+    }
+
+    public byte[] getLogoData() {
+        return logoData;
+    }
+
+    public void setLogoData(byte[] logoData) {
+        this.logoData = logoData;
     }
 }
 

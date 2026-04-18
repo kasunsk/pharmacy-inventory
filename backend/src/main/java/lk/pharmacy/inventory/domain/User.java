@@ -41,6 +41,18 @@ public class User {
     @Column(nullable = false)
     private Instant createdAt = Instant.now();
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "default_pharmacy_id")
+    private Pharmacy defaultPharmacy;
+
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "user_pharmacies",
+            joinColumns = @JoinColumn(name = "user_id"),
+            inverseJoinColumns = @JoinColumn(name = "pharmacy_id")
+    )
+    private Set<Pharmacy> assignedPharmacies = new HashSet<>();
+
     private String firstName;
     private String lastName;
     private String phoneNumber;
@@ -99,6 +111,22 @@ public class User {
 
     public Instant getCreatedAt() {
         return createdAt;
+    }
+
+    public Pharmacy getDefaultPharmacy() {
+        return defaultPharmacy;
+    }
+
+    public void setDefaultPharmacy(Pharmacy defaultPharmacy) {
+        this.defaultPharmacy = defaultPharmacy;
+    }
+
+    public Set<Pharmacy> getAssignedPharmacies() {
+        return assignedPharmacies;
+    }
+
+    public void setAssignedPharmacies(Set<Pharmacy> assignedPharmacies) {
+        this.assignedPharmacies = assignedPharmacies == null ? new HashSet<>() : new HashSet<>(assignedPharmacies);
     }
 
     public String getFirstName() {

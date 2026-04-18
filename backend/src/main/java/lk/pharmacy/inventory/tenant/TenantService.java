@@ -1,11 +1,13 @@
 package lk.pharmacy.inventory.tenant;
 
 import lk.pharmacy.inventory.domain.Role;
+import lk.pharmacy.inventory.domain.Pharmacy;
 import lk.pharmacy.inventory.domain.Tenant;
 import lk.pharmacy.inventory.domain.TenantAuditLog;
 import lk.pharmacy.inventory.domain.User;
 import lk.pharmacy.inventory.exception.ApiException;
 import lk.pharmacy.inventory.repo.TenantAuditLogRepository;
+import lk.pharmacy.inventory.repo.PharmacyRepository;
 import lk.pharmacy.inventory.repo.TenantRepository;
 import lk.pharmacy.inventory.repo.UserRepository;
 import lk.pharmacy.inventory.tenant.dto.AssignUserTenantRequest;
@@ -36,17 +38,20 @@ public class TenantService {
     private final TenantRepository tenantRepository;
     private final UserRepository userRepository;
     private final TenantAuditLogRepository tenantAuditLogRepository;
+    private final PharmacyRepository pharmacyRepository;
     private final PasswordEncoder passwordEncoder;
     private final CurrentUserService currentUserService;
 
     public TenantService(TenantRepository tenantRepository,
                          UserRepository userRepository,
                          TenantAuditLogRepository tenantAuditLogRepository,
+                         PharmacyRepository pharmacyRepository,
                          PasswordEncoder passwordEncoder,
                          CurrentUserService currentUserService) {
         this.tenantRepository = tenantRepository;
         this.userRepository = userRepository;
         this.tenantAuditLogRepository = tenantAuditLogRepository;
+        this.pharmacyRepository = pharmacyRepository;
         this.passwordEncoder = passwordEncoder;
         this.currentUserService = currentUserService;
     }
@@ -87,12 +92,22 @@ public class TenantService {
         tenant.setName(request.name().trim());
         tenant = tenantRepository.save(tenant);
 
+        Pharmacy pharmacy = new Pharmacy();
+        pharmacy.setTenant(tenant);
+        pharmacy.setCode("MAIN");
+        pharmacy.setName(request.name().trim() + " Main");
+        pharmacy = pharmacyRepository.save(pharmacy);
+        tenant.setDefaultPharmacy(pharmacy);
+        tenant = tenantRepository.save(tenant);
+
         User tenantAdmin = new User();
         tenantAdmin.setTenant(tenant);
         tenantAdmin.setUsername(adminUsername);
         tenantAdmin.setPasswordHash(passwordEncoder.encode(request.adminPassword().trim()));
         tenantAdmin.setRoles(Set.of(Role.ADMIN));
         tenantAdmin.setGender(adminGender);
+        tenantAdmin.setDefaultPharmacy(pharmacy);
+        tenantAdmin.getAssignedPharmacies().add(pharmacy);
         userRepository.save(tenantAdmin);
 
         audit(tenant, "TENANT_CREATED");
@@ -123,6 +138,12 @@ public class TenantService {
         tenant.setInventoryEnabled(request.inventoryEnabled());
         tenant.setAnalyticsEnabled(request.analyticsEnabled());
         tenant.setAiAssistantEnabled(request.aiAssistantEnabled());
+        if (request.defaultPharmacyId() != null) {
+            tenant.setDefaultPharmacy(
+                    pharmacyRepository.findByIdAndTenant_Id(request.defaultPharmacyId(), tenantId)
+                            .orElseThrow(() -> new ApiException("Default pharmacy not found"))
+            );
+        }
 
         Tenant saved = tenantRepository.save(tenant);
         audit(saved, "TENANT_CONFIG_UPDATED");
@@ -149,6 +170,10 @@ public class TenantService {
                 .orElseThrow(() -> new ApiException("Tenant not found"));
 
         user.setTenant(tenant);
+        if (tenant.getDefaultPharmacy() != null) {
+            user.setDefaultPharmacy(tenant.getDefaultPharmacy());
+            user.getAssignedPharmacies().add(tenant.getDefaultPharmacy());
+        }
         return toUserAssignmentResponse(userRepository.save(user));
     }
 
@@ -159,6 +184,8 @@ public class TenantService {
                 tenant.getCode(),
                 tenant.getName(),
                 tenant.isEnabled(),
+                tenant.getDefaultPharmacy() == null ? null : tenant.getDefaultPharmacy().getId(),
+                tenant.getLogoData() != null && tenant.getLogoData().length > 0,
                 legacyUnconfigured || tenant.isBillingEnabled(),
                 legacyUnconfigured || tenant.isTransactionsEnabled(),
                 legacyUnconfigured || tenant.isInventoryEnabled(),

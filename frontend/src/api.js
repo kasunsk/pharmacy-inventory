@@ -44,6 +44,40 @@ export async function login(username, password) {
   return response.json();
 }
 
+export async function selectPharmacy(pharmacyId) {
+  const response = await fetch(`${API_BASE}/auth/pharmacy/select`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ pharmacyId })
+  });
+  if (!response.ok) {
+    throw await parseApiError(response, 'Failed to select pharmacy.');
+  }
+  return response.json();
+}
+
+export async function setDefaultPharmacy(pharmacyId) {
+  const response = await fetch(`${API_BASE}/auth/pharmacy/default`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ pharmacyId })
+  });
+  if (!response.ok) {
+    throw await parseApiError(response, 'Failed to set default pharmacy.');
+  }
+  return response.json();
+}
+
+export async function fetchMyPharmacies() {
+  const response = await fetch(`${API_BASE}/pharmacies/my`, {
+    headers: { ...authHeaders() }
+  });
+  if (!response.ok) {
+    throw await parseApiError(response, 'Failed to load pharmacies.');
+  }
+  return response.json();
+}
+
 export async function fetchTenants() {
   const response = await fetch(`${API_BASE}/admin-portal/tenants`, {
     headers: { ...authHeaders() }
@@ -120,6 +154,92 @@ export async function fetchTenantAudits(limit = 50) {
     throw await parseApiError(response, 'Failed to fetch tenant audit logs.');
   }
   return response.json();
+}
+
+export async function fetchTenantPharmacies(tenantId, enabledOnly = false) {
+  const response = await fetch(`${API_BASE}/admin-portal/tenants/${tenantId}/pharmacies?enabledOnly=${encodeURIComponent(enabledOnly)}`, {
+    headers: { ...authHeaders() }
+  });
+  if (!response.ok) {
+    throw await parseApiError(response, 'Failed to fetch tenant pharmacies.');
+  }
+  return response.json();
+}
+
+export async function createTenantPharmacy(tenantId, payload) {
+  const response = await fetch(`${API_BASE}/admin-portal/tenants/${tenantId}/pharmacies`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify(payload)
+  });
+  if (!response.ok) {
+    throw await parseApiError(response, 'Failed to create pharmacy.');
+  }
+  return response.json();
+}
+
+export async function updateTenantPharmacyStatus(tenantId, pharmacyId, enabled) {
+  const response = await fetch(`${API_BASE}/admin-portal/tenants/${tenantId}/pharmacies/${pharmacyId}/status`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ enabled })
+  });
+  if (!response.ok) {
+    throw await parseApiError(response, 'Failed to update pharmacy status.');
+  }
+  return response.json();
+}
+
+export async function uploadTenantLogo(tenantId, file) {
+  const formData = new FormData();
+  formData.append('file', file);
+  const response = await fetch(`${API_BASE}/admin-portal/tenants/${tenantId}/logo`, {
+    method: 'POST',
+    headers: { ...authHeaders() },
+    body: formData
+  });
+  if (!response.ok) {
+    throw await parseApiError(response, 'Failed to upload tenant logo.');
+  }
+}
+
+export async function uploadPharmacyLogo(tenantId, pharmacyId, file) {
+  const formData = new FormData();
+  formData.append('file', file);
+  const response = await fetch(`${API_BASE}/admin-portal/tenants/${tenantId}/pharmacies/${pharmacyId}/logo`, {
+    method: 'POST',
+    headers: { ...authHeaders() },
+    body: formData
+  });
+  if (!response.ok) {
+    throw await parseApiError(response, 'Failed to upload pharmacy logo.');
+  }
+  return response.json();
+}
+
+async function fetchLogoAsObjectUrl(url) {
+  const response = await fetch(url, { headers: { ...authHeaders() } });
+  if (!response.ok) {
+    throw await parseApiError(response, 'Logo is unavailable.');
+  }
+  const blob = await response.blob();
+  return URL.createObjectURL(blob);
+}
+
+export async function fetchTenantLogoUrl(tenantId) {
+  return fetchLogoAsObjectUrl(`${API_BASE}/admin-portal/tenants/${tenantId}/logo`);
+}
+
+export async function fetchPharmacyLogoUrl(tenantId, pharmacyId) {
+  return fetchLogoAsObjectUrl(`${API_BASE}/admin-portal/tenants/${tenantId}/pharmacies/${pharmacyId}/logo`);
+}
+
+export async function fetchCurrentTenantLogoUrl() {
+  return fetchLogoAsObjectUrl(`${API_BASE}/branding/tenant/logo`);
+}
+
+export async function fetchCurrentPharmacyLogoUrl() {
+  return fetchLogoAsObjectUrl(`${API_BASE}/branding/pharmacy/logo`);
 }
 
 export async function fetchInventory(options) {

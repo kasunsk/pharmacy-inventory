@@ -35,26 +35,31 @@ public class InventoryService {
     public Page<Medicine> list(int page, int size) {
         int safePage = Math.max(page, 0);
         int safeSize = Math.min(Math.max(size, 1), 100);
-        Long tenantId = currentUserService.getCurrentUser().getTenant().getId();
-        return medicineRepository.findByTenant_Id(tenantId, PageRequest.of(safePage, safeSize, Sort.by("name").ascending()));
+        Long tenantId = currentUserService.getCurrentTenantId();
+        Long pharmacyId = currentUserService.getCurrentPharmacy().getId();
+        return medicineRepository.findByTenant_IdAndPharmacy_Id(tenantId, pharmacyId, PageRequest.of(safePage, safeSize, Sort.by("name").ascending()));
     }
 
     public Medicine getById(Long id) {
-        Long tenantId = currentUserService.getCurrentUser().getTenant().getId();
-        return medicineRepository.findByIdAndTenant_Id(id, tenantId)
+        Long tenantId = currentUserService.getCurrentTenantId();
+        Long pharmacyId = currentUserService.getCurrentPharmacy().getId();
+        return medicineRepository.findByIdAndTenant_IdAndPharmacy_Id(id, tenantId, pharmacyId)
                 .orElseThrow(() -> new ApiException("Medicine not found"));
     }
 
     public Medicine create(MedicineRequest request) {
+        var currentUser = currentUserService.getCurrentTenantUser();
         Medicine medicine = new Medicine();
-        medicine.setTenant(currentUserService.getCurrentUser().getTenant());
+        medicine.setTenant(currentUser.getTenant());
+        medicine.setPharmacy(currentUserService.getCurrentPharmacy());
         apply(medicine, request);
         return medicineRepository.save(medicine);
     }
 
     public Medicine update(Long id, UpdateMedicineRequest request) {
-        Long tenantId = currentUserService.getCurrentUser().getTenant().getId();
-        Medicine medicine = medicineRepository.findByIdAndTenant_Id(id, tenantId)
+        Long tenantId = currentUserService.getCurrentTenantId();
+        Long pharmacyId = currentUserService.getCurrentPharmacy().getId();
+        Medicine medicine = medicineRepository.findByIdAndTenant_IdAndPharmacy_Id(id, tenantId, pharmacyId)
                 .orElseThrow(() -> new ApiException("Medicine not found"));
         apply(medicine, request.toMedicineRequest());
         Medicine saved = medicineRepository.save(medicine);
@@ -69,20 +74,23 @@ public class InventoryService {
     }
 
     public void delete(Long id) {
-        Long tenantId = currentUserService.getCurrentUser().getTenant().getId();
-        Medicine medicine = medicineRepository.findByIdAndTenant_Id(id, tenantId)
+        Long tenantId = currentUserService.getCurrentTenantId();
+        Long pharmacyId = currentUserService.getCurrentPharmacy().getId();
+        Medicine medicine = medicineRepository.findByIdAndTenant_IdAndPharmacy_Id(id, tenantId, pharmacyId)
                 .orElseThrow(() -> new ApiException("Medicine not found"));
         medicineRepository.delete(medicine);
     }
 
     public List<Medicine> lowStock(int threshold) {
-        Long tenantId = currentUserService.getCurrentUser().getTenant().getId();
-        return medicineRepository.findByQuantityLessThanEqualAndTenant_Id(threshold, tenantId);
+        Long tenantId = currentUserService.getCurrentTenantId();
+        Long pharmacyId = currentUserService.getCurrentPharmacy().getId();
+        return medicineRepository.findByQuantityLessThanEqualAndTenant_IdAndPharmacy_Id(threshold, tenantId, pharmacyId);
     }
 
     public List<Medicine> expiringBefore(LocalDate date) {
-        Long tenantId = currentUserService.getCurrentUser().getTenant().getId();
-        return medicineRepository.findByExpiryDateBeforeAndTenant_Id(date, tenantId);
+        Long tenantId = currentUserService.getCurrentTenantId();
+        Long pharmacyId = currentUserService.getCurrentPharmacy().getId();
+        return medicineRepository.findByExpiryDateBeforeAndTenant_IdAndPharmacy_Id(date, tenantId, pharmacyId);
     }
 
     private void apply(Medicine medicine, MedicineRequest request) {

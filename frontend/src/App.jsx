@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { useAuth } from './auth/AuthContext';
+import { fetchCurrentPharmacyLogoUrl, fetchCurrentTenantLogoUrl } from './api';
 import AiAssistantPanel from './components/AiAssistantPanel';
 import ProtectedRoute from './components/ProtectedRoute';
 import LoginPage from './pages/LoginPage';
@@ -13,6 +14,7 @@ import SalesAnalyticsPage from './pages/SalesAnalyticsPage';
 import TenantManagementPage from './pages/TenantManagementPage';
 import UserManagementPage from './pages/UserManagementPage';
 import ProfilePage from './pages/ProfilePage';
+import PharmacySelectionPage from './pages/PharmacySelectionPage';
 
 const ACCESS = {
   BILLING: ['BILLING'],
@@ -26,10 +28,12 @@ const ACCESS = {
 };
 
 export default function App() {
-  const { isAuthenticated, session, logout, hasAnyRole, hasFeature } = useAuth();
+  const { isAuthenticated, session, logout, hasAnyRole, hasFeature, selectPharmacy } = useAuth();
   const location = useLocation();
   const [isAiOpen, setIsAiOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [tenantLogoUrl, setTenantLogoUrl] = useState('');
+  const [pharmacyLogoUrl, setPharmacyLogoUrl] = useState('');
   const profileRef = useRef(null);
 
   const isAdminPortalRoute = location.pathname.startsWith('/admin-portal');
@@ -40,6 +44,56 @@ export default function App() {
   const canAccessTransactions = hasAnyRole(ACCESS.TRANSACTIONS) && hasFeature('transactionsEnabled');
   const canAccessAnalytics = hasAnyRole(ACCESS.ANALYTICS) && hasFeature('analyticsEnabled');
   const canAccessAi = hasAnyRole(ACCESS.AI) && hasFeature('aiAssistantEnabled');
+  const needsPharmacySelection = Boolean(isAuthenticated && !isSuperAdmin && session?.requiresPharmacySelection);
+
+  useEffect(() => {
+    let active = true;
+    let nextTenantLogoUrl = '';
+    let nextPharmacyLogoUrl = '';
+
+    async function loadLogos() {
+      if (!isAuthenticated || isSuperAdmin) {
+        if (active) {
+          setTenantLogoUrl('');
+          setPharmacyLogoUrl('');
+        }
+        return;
+      }
+
+      if (session?.tenantHasLogo) {
+        try {
+          nextTenantLogoUrl = await fetchCurrentTenantLogoUrl();
+        } catch (_) {
+          nextTenantLogoUrl = '';
+        }
+      }
+
+      const selectedPharmacy = (session?.availablePharmacies || []).find((item) => item.id === session?.selectedPharmacyId);
+      if (selectedPharmacy?.hasLogo && session?.selectedPharmacyId) {
+        try {
+          nextPharmacyLogoUrl = await fetchCurrentPharmacyLogoUrl();
+        } catch (_) {
+          nextPharmacyLogoUrl = '';
+        }
+      }
+
+      if (active) {
+        setTenantLogoUrl(nextTenantLogoUrl);
+        setPharmacyLogoUrl(nextPharmacyLogoUrl);
+      }
+    }
+
+    loadLogos();
+    return () => {
+      active = false;
+      if (nextTenantLogoUrl) {
+        URL.revokeObjectURL(nextTenantLogoUrl);
+      }
+      if (nextPharmacyLogoUrl) {
+        URL.revokeObjectURL(nextPharmacyLogoUrl);
+      }
+    };
+  }, [isAuthenticated, isSuperAdmin, session?.tenantHasLogo, session?.selectedPharmacyId, session?.availablePharmacies]);
 
   useEffect(() => {
     if (!isProfileOpen) return;
@@ -54,6 +108,8 @@ export default function App() {
 
   const defaultPath = !isAuthenticated
     ? '/login'
+    : needsPharmacySelection
+      ? '/select-pharmacy'
     : isSuperAdmin
       ? '/admin-portal/tenants'
       : canAccessBilling
@@ -71,10 +127,14 @@ export default function App() {
       {isAuthenticated && !isAdminPortalRoute && !isSuperAdmin && (
         <header className="top-nav">
           <div className="brand-lockup">
-            <span className="brand-mark" aria-hidden="true">Rx</span>
+            {pharmacyLogoUrl || tenantLogoUrl ? (
+              <img className="brand-logo" src={pharmacyLogoUrl || tenantLogoUrl} alt="Pharmacy logo" />
+            ) : (
+              <span className="brand-mark" aria-hidden="true">Rx</span>
+            )}
             <div>
               <h1>Pharmacy Management System</h1>
-              <small>{session.username}</small>
+              <small>{session?.selectedPharmacyName || session.username}</small>
             </div>
           </div>
           <nav aria-label="Main navigation">
@@ -83,6 +143,20 @@ export default function App() {
             {canAccessTransactions && <NavLink to="/transactions">Transactions</NavLink>}
             {canAccessAnalytics && <NavLink to="/sales-analytics">Analytics</NavLink>}
             {hasAnyRole(ACCESS.ADMIN) && <NavLink to="/users">Users</NavLink>}
+            <select
+              value={session?.selectedPharmacyId ?? ''}
+              onChange={async (event) => {
+                const value = event.target.value;
+                if (!value) return;
+                await selectPharmacy(Number(value));
+              }}
+              title="Active pharmacy"
+            >
+              {!session?.selectedPharmacyId && <option value="">Select pharmacy</option>}
+              {(session?.availablePharmacies || []).map((pharmacy) => (
+                <option key={pharmacy.id} value={pharmacy.id}>{pharmacy.name}</option>
+              ))}
+            </select>
 
             <div className="profile-menu-wrap" ref={profileRef}>
               <button
@@ -151,6 +225,14 @@ export default function App() {
           <Route path="/" element={<Navigate to={defaultPath} replace />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/super-admin/login" element={<SuperAdminLoginPage />} />
+          <Route
+            path="/select-pharmacy"
+            element={(
+              <ProtectedRoute allowWithoutPharmacyContext>
+                {isSuperAdmin ? <Navigate to={defaultPath} replace /> : <PharmacySelectionPage />}
+              </ProtectedRoute>
+            )}
+          />
 
           <Route
             path="/billing"

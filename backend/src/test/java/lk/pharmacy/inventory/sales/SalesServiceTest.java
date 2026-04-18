@@ -1,13 +1,16 @@
 package lk.pharmacy.inventory.sales;
 
 import lk.pharmacy.inventory.domain.Medicine;
+import lk.pharmacy.inventory.domain.Pharmacy;
 import lk.pharmacy.inventory.domain.Role;
 import lk.pharmacy.inventory.domain.Tenant;
 import lk.pharmacy.inventory.domain.User;
 import lk.pharmacy.inventory.exception.ApiException;
 import lk.pharmacy.inventory.repo.MedicineRepository;
+import lk.pharmacy.inventory.repo.PharmacyRepository;
 import lk.pharmacy.inventory.repo.TenantRepository;
 import lk.pharmacy.inventory.repo.UserRepository;
+import lk.pharmacy.inventory.security.TenantUserPrincipal;
 import lk.pharmacy.inventory.sales.dto.CreateSaleRequest;
 import lk.pharmacy.inventory.sales.dto.SaleItemRequest;
 import lk.pharmacy.inventory.sales.dto.SaleBillResponse;
@@ -47,6 +50,41 @@ class SalesServiceTest {
     @Autowired
     private TenantRepository tenantRepository;
 
+    @Autowired
+    private PharmacyRepository pharmacyRepository;
+
+    private Pharmacy ensurePharmacy(Tenant tenant) {
+        Pharmacy pharmacy = pharmacyRepository.findByTenant_IdAndCodeIgnoreCase(tenant.getId(), "MAIN")
+                .orElseGet(() -> {
+                    Pharmacy created = new Pharmacy();
+                    created.setTenant(tenant);
+                    created.setCode("MAIN");
+                    created.setName("Main");
+                    return pharmacyRepository.save(created);
+                });
+        if (tenant.getDefaultPharmacy() == null) {
+            tenant.setDefaultPharmacy(pharmacy);
+            tenantRepository.save(tenant);
+        }
+        return pharmacy;
+    }
+
+    private void authenticate(User user, Long pharmacyId) {
+        TenantUserPrincipal principal = new TenantUserPrincipal(
+                user.getId(),
+                user.getTenant().getId(),
+                user.getTenant().getCode(),
+                pharmacyId,
+                user.getUsername(),
+                user.getPasswordHash(),
+                user.isEnabled(),
+                List.<org.springframework.security.core.GrantedAuthority>of()
+        );
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(principal, null, List.of())
+        );
+    }
+
     private Tenant ensureTenant() {
         return tenantRepository.findByCode("TEST")
                 .orElseGet(() -> {
@@ -65,15 +103,19 @@ class SalesServiceTest {
     @Test
     void createSaleShouldDeductStockAndComputeTotals() {
         Tenant tenant = ensureTenant();
+        Pharmacy pharmacy = ensurePharmacy(tenant);
         User employer = new User();
         employer.setTenant(tenant);
         employer.setUsername("staff1");
         employer.setPasswordHash(passwordEncoder.encode("pass123"));
         employer.setRoles(Set.of(Role.BILLING));
+        employer.setDefaultPharmacy(pharmacy);
+        employer.getAssignedPharmacies().add(pharmacy);
         userRepository.save(employer);
 
         Medicine med = new Medicine();
         med.setTenant(tenant);
+        med.setPharmacy(pharmacy);
         med.setName("Paracetamol");
         med.setBatchNumber("B001");
         med.setExpiryDate(LocalDate.now().plusMonths(6));
@@ -83,9 +125,7 @@ class SalesServiceTest {
         med.setQuantity(100);
         medicineRepository.save(med);
 
-        SecurityContextHolder.getContext().setAuthentication(
-                new UsernamePasswordAuthenticationToken("staff1", null, List.of())
-        );
+        authenticate(employer, pharmacy.getId());
 
         CreateSaleRequest request = new CreateSaleRequest(
                 List.of(new SaleItemRequest(med.getId(), med.getName(), 2, "tablets", null, false, "1 tablet per day (morning)", null, null)),
@@ -106,15 +146,19 @@ class SalesServiceTest {
     @Test
     void salesSummaryShouldReturnRevenueCostAndProfit() {
         Tenant tenant = ensureTenant();
+        Pharmacy pharmacy = ensurePharmacy(tenant);
         User employer = new User();
         employer.setTenant(tenant);
         employer.setUsername("staff2");
         employer.setPasswordHash(passwordEncoder.encode("pass123"));
         employer.setRoles(Set.of(Role.BILLING));
+        employer.setDefaultPharmacy(pharmacy);
+        employer.getAssignedPharmacies().add(pharmacy);
         userRepository.save(employer);
 
         Medicine med = new Medicine();
         med.setTenant(tenant);
+        med.setPharmacy(pharmacy);
         med.setName("Vitamin C");
         med.setBatchNumber("B090");
         med.setExpiryDate(LocalDate.now().plusMonths(12));
@@ -124,9 +168,7 @@ class SalesServiceTest {
         med.setQuantity(40);
         medicineRepository.save(med);
 
-        SecurityContextHolder.getContext().setAuthentication(
-                new UsernamePasswordAuthenticationToken("staff2", null, List.of())
-        );
+        authenticate(employer, pharmacy.getId());
 
         salesService.createSale(new CreateSaleRequest(
                 List.of(new SaleItemRequest(med.getId(), med.getName(), 2, "capsules", null, false, "2 tablets per day (morning and evening after food)", null, null)),
@@ -146,15 +188,19 @@ class SalesServiceTest {
     @Test
     void shouldRejectManualPriceOverrideWhenNotAllowed() {
         Tenant tenant = ensureTenant();
+        Pharmacy pharmacy = ensurePharmacy(tenant);
         User employer = new User();
         employer.setTenant(tenant);
         employer.setUsername("staff3");
         employer.setPasswordHash(passwordEncoder.encode("pass123"));
         employer.setRoles(Set.of(Role.BILLING));
+        employer.setDefaultPharmacy(pharmacy);
+        employer.getAssignedPharmacies().add(pharmacy);
         userRepository.save(employer);
 
         Medicine med = new Medicine();
         med.setTenant(tenant);
+        med.setPharmacy(pharmacy);
         med.setName("Ibuprofen");
         med.setBatchNumber("B099");
         med.setExpiryDate(LocalDate.now().plusMonths(10));
@@ -164,9 +210,7 @@ class SalesServiceTest {
         med.setQuantity(30);
         medicineRepository.save(med);
 
-        SecurityContextHolder.getContext().setAuthentication(
-                new UsernamePasswordAuthenticationToken("staff3", null, List.of())
-        );
+        authenticate(employer, pharmacy.getId());
 
         ApiException ex = Assertions.assertThrows(ApiException.class, () ->
                 salesService.createSale(new CreateSaleRequest(

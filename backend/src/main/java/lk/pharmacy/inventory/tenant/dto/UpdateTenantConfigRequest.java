@@ -7,7 +7,8 @@ public record UpdateTenantConfigRequest(
         @NotNull Boolean transactionsEnabled,
         @NotNull Boolean inventoryEnabled,
         @NotNull Boolean analyticsEnabled,
-        @NotNull Boolean aiAssistantEnabled
+        @NotNull Boolean aiAssistantEnabled,
+        Long defaultPharmacyId
 ) {
 }
 

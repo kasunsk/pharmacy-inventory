@@ -9,6 +9,8 @@ public record UpdateEmployeeRequest(
         String password,
         Set<Role> roles,
         Boolean enabled,
+        Set<Long> pharmacyIds,
+        Long defaultPharmacyId,
         String firstName,
         String lastName,
         String phoneNumber,

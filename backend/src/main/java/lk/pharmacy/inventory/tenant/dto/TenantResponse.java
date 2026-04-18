@@ -7,6 +7,8 @@ public record TenantResponse(
         String code,
         String name,
         boolean enabled,
+        Long defaultPharmacyId,
+        boolean hasLogo,
         boolean billingEnabled,
         boolean transactionsEnabled,
         boolean inventoryEnabled,

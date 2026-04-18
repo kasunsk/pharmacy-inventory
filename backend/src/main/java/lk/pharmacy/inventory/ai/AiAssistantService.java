@@ -171,11 +171,12 @@ public class AiAssistantService {
     }
 
     private Map<String, Object> profitData(String normalized) {
-        Long tenantId = currentUserService.getCurrentUser().getTenant().getId();
+        Long tenantId = currentUserService.getCurrentTenantId();
+        Long pharmacyId = currentUserService.getCurrentPharmacy().getId();
         InstantRange range = resolveRange(normalized);
-        BigDecimal revenue = saleRepository.sumTotalBetween(tenantId, range.start(), range.end());
-        BigDecimal cost = saleItemRepository.sumCostBetween(tenantId, range.start(), range.end());
-        long saleCount = saleRepository.countByTenant_IdAndCreatedAtBetween(tenantId, range.start(), range.end());
+        BigDecimal revenue = saleRepository.sumTotalBetween(tenantId, pharmacyId, range.start(), range.end());
+        BigDecimal cost = saleItemRepository.sumCostBetween(tenantId, pharmacyId, range.start(), range.end());
+        long saleCount = saleRepository.countByTenant_IdAndPharmacy_IdAndCreatedAtBetween(tenantId, pharmacyId, range.start(), range.end());
 
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("from", range.fromDate().toString());
@@ -188,8 +189,9 @@ public class AiAssistantService {
     }
 
     private Map<String, Object> totalInventoryData() {
-        Long tenantId = currentUserService.getCurrentUser().getTenant().getId();
-        List<Medicine> medicines = medicineRepository.findByTenant_Id(tenantId);
+        Long tenantId = currentUserService.getCurrentTenantId();
+        Long pharmacyId = currentUserService.getCurrentPharmacy().getId();
+        List<Medicine> medicines = medicineRepository.findByTenant_IdAndPharmacy_Id(tenantId, pharmacyId);
         int medicineTypes = medicines.size();
         int totalUnits = medicines.stream().mapToInt(Medicine::getQuantity).sum();
 
@@ -200,8 +202,9 @@ public class AiAssistantService {
     }
 
     private Map<String, Object> lowStockData() {
-        Long tenantId = currentUserService.getCurrentUser().getTenant().getId();
-        List<Medicine> lowStock = medicineRepository.findByQuantityLessThanEqualAndTenant_Id(10, tenantId);
+        Long tenantId = currentUserService.getCurrentTenantId();
+        Long pharmacyId = currentUserService.getCurrentPharmacy().getId();
+        List<Medicine> lowStock = medicineRepository.findByQuantityLessThanEqualAndTenant_IdAndPharmacy_Id(10, tenantId, pharmacyId);
         long outOfStock = lowStock.stream().filter(m -> m.getQuantity() <= 0).count();
 
         Map<String, Object> data = new LinkedHashMap<>();
@@ -217,8 +220,9 @@ public class AiAssistantService {
     }
 
     private Map<String, Object> minimumStockData() {
-        Long tenantId = currentUserService.getCurrentUser().getTenant().getId();
-        List<Medicine> medicines = medicineRepository.findByTenant_Id(tenantId);
+        Long tenantId = currentUserService.getCurrentTenantId();
+        Long pharmacyId = currentUserService.getCurrentPharmacy().getId();
+        List<Medicine> medicines = medicineRepository.findByTenant_IdAndPharmacy_Id(tenantId, pharmacyId);
         Medicine minimum = medicines.stream().min(Comparator.comparingInt(Medicine::getQuantity)).orElse(null);
 
         Map<String, Object> data = new LinkedHashMap<>();
@@ -234,9 +238,10 @@ public class AiAssistantService {
     }
 
     private Map<String, Object> availabilityData(String normalized) {
-        Long tenantId = currentUserService.getCurrentUser().getTenant().getId();
+        Long tenantId = currentUserService.getCurrentTenantId();
+        Long pharmacyId = currentUserService.getCurrentPharmacy().getId();
         String name = extractMedicineName(normalized);
-        List<Medicine> matches = medicineRepository.findByNameContainingIgnoreCaseAndTenant_Id(name, tenantId);
+        List<Medicine> matches = medicineRepository.findByNameContainingIgnoreCaseAndTenant_IdAndPharmacy_Id(name, tenantId, pharmacyId);
 
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("medicine", name);
@@ -251,7 +256,8 @@ public class AiAssistantService {
     }
 
     private Map<String, Object> billingData(String normalized) {
-        Long tenantId = currentUserService.getCurrentUser().getTenant().getId();
+        Long tenantId = currentUserService.getCurrentTenantId();
+        Long pharmacyId = currentUserService.getCurrentPharmacy().getId();
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("steps", List.of(
                 "Open Billing page",
@@ -262,16 +268,17 @@ public class AiAssistantService {
 
         if (containsAny(normalized, "suggest", "recommend")) {
             String partial = extractMedicineName(normalized);
-            List<Medicine> suggestions = medicineRepository.findByNameContainingIgnoreCaseAndTenant_Id(partial, tenantId);
+            List<Medicine> suggestions = medicineRepository.findByNameContainingIgnoreCaseAndTenant_IdAndPharmacy_Id(partial, tenantId, pharmacyId);
             data.put("suggestions", suggestions.stream().limit(5).map(Medicine::getName).toList());
         }
         return data;
     }
 
     private Map<String, Object> transactionData(String normalized) {
-        Long tenantId = currentUserService.getCurrentUser().getTenant().getId();
+        Long tenantId = currentUserService.getCurrentTenantId();
+        Long pharmacyId = currentUserService.getCurrentPharmacy().getId();
         InstantRange range = resolveRange(normalized);
-        List<Sale> sales = saleRepository.findByTenant_IdAndCreatedAtBetweenOrderByCreatedAtDesc(tenantId, range.start(), range.end());
+        List<Sale> sales = saleRepository.findByTenant_IdAndPharmacy_IdAndCreatedAtBetweenOrderByCreatedAtDesc(tenantId, pharmacyId, range.start(), range.end());
 
         String medicineFilter = containsAny(normalized, "medicine", "for") ? extractMedicineName(normalized) : null;
         if (medicineFilter != null && !medicineFilter.isBlank()) {

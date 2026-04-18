@@ -30,8 +30,9 @@ public class AnalyticsService {
     }
 
     public Map<String, Object> lowStock() {
-        Long tenantId = currentUserService.getCurrentUser().getTenant().getId();
-        List<Medicine> medicines = medicineRepository.findByQuantityLessThanEqualAndTenant_Id(10, tenantId);
+        Long tenantId = currentUserService.getCurrentTenantId();
+        Long pharmacyId = currentUserService.getCurrentPharmacy().getId();
+        List<Medicine> medicines = medicineRepository.findByQuantityLessThanEqualAndTenant_IdAndPharmacy_Id(10, tenantId, pharmacyId);
         return Map.of("intent", "low_stock", "count", medicines.size(), "items", medicines);
     }
 
@@ -40,14 +41,16 @@ public class AnalyticsService {
         LocalDate today = LocalDate.now(zone);
         Instant start = today.atStartOfDay(zone).toInstant();
         Instant end = today.plusDays(1).atStartOfDay(zone).toInstant();
-        Long tenantId = currentUserService.getCurrentUser().getTenant().getId();
-        BigDecimal total = saleRepository.sumTotalBetween(tenantId, start, end);
+        Long tenantId = currentUserService.getCurrentTenantId();
+        Long pharmacyId = currentUserService.getCurrentPharmacy().getId();
+        BigDecimal total = saleRepository.sumTotalBetween(tenantId, pharmacyId, start, end);
         return Map.of("intent", "today_sales", "date", today.toString(), "total", total);
     }
 
     public Map<String, Object> topSelling() {
-        Long tenantId = currentUserService.getCurrentUser().getTenant().getId();
-        List<Object[]> rows = saleItemRepository.findTopSellingBetween(tenantId, Instant.EPOCH, Instant.now().plusSeconds(1));
+        Long tenantId = currentUserService.getCurrentTenantId();
+        Long pharmacyId = currentUserService.getCurrentPharmacy().getId();
+        List<Object[]> rows = saleItemRepository.findTopSellingBetween(tenantId, pharmacyId, Instant.EPOCH, Instant.now().plusSeconds(1));
         if (rows.isEmpty()) {
             return Map.of("intent", "top_selling", "message", "No sales data yet");
         }
@@ -56,8 +59,9 @@ public class AnalyticsService {
     }
 
     public Map<String, Object> availability(String name) {
-        Long tenantId = currentUserService.getCurrentUser().getTenant().getId();
-        List<Medicine> matches = medicineRepository.findByNameContainingIgnoreCaseAndTenant_Id(name, tenantId);
+        Long tenantId = currentUserService.getCurrentTenantId();
+        Long pharmacyId = currentUserService.getCurrentPharmacy().getId();
+        List<Medicine> matches = medicineRepository.findByNameContainingIgnoreCaseAndTenant_IdAndPharmacy_Id(name, tenantId, pharmacyId);
         return Map.of("intent", "availability", "name", name, "matches", matches);
     }
 }

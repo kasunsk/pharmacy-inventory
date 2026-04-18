@@ -43,7 +43,10 @@ public class FileService {
         }
 
         User currentUser = currentUserService.getCurrentUser();
-        Sale sale = saleRepository.findByIdAndTenant_Id(saleId, currentUser.getTenant().getId())
+        Sale sale = saleRepository.findByIdAndTenant_IdAndPharmacy_Id(
+                        saleId,
+                        currentUser.getTenant().getId(),
+                        currentUserService.getCurrentPharmacy().getId())
                 .orElseThrow(() -> new ApiException("Sale not found"));
 
         StoredFile storedFile = new StoredFile();

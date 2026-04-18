@@ -1,5 +1,5 @@
 import { createContext, useContext, useMemo, useState } from 'react';
-import { login as loginRequest } from '../api';
+import { login as loginRequest, selectPharmacy as selectPharmacyRequest, setDefaultPharmacy as setDefaultPharmacyRequest } from '../api';
 
 const AuthContext = createContext(null);
 
@@ -10,6 +10,11 @@ function readInitialSession() {
   const tenantIdRaw = localStorage.getItem('tenantId');
   const tenantCode = localStorage.getItem('tenantCode');
   const tenantName = localStorage.getItem('tenantName');
+  const tenantHasLogoRaw = localStorage.getItem('tenantHasLogo');
+  const selectedPharmacyIdRaw = localStorage.getItem('selectedPharmacyId');
+  const selectedPharmacyName = localStorage.getItem('selectedPharmacyName');
+  const availablePharmaciesRaw = localStorage.getItem('availablePharmacies');
+  const requiresPharmacySelectionRaw = localStorage.getItem('requiresPharmacySelection');
   const tenantFeaturesRaw = localStorage.getItem('tenantFeatures');
   if (!token || !username || !rolesRaw) {
     return null;
@@ -33,6 +38,13 @@ function readInitialSession() {
     tenantFeatures = null;
   }
 
+  let availablePharmacies = [];
+  try {
+    availablePharmacies = availablePharmaciesRaw ? JSON.parse(availablePharmaciesRaw) : [];
+  } catch (_) {
+    availablePharmacies = [];
+  }
+
   return {
     token,
     username,
@@ -40,6 +52,11 @@ function readInitialSession() {
     tenantId: tenantIdRaw ? Number(tenantIdRaw) : null,
     tenantCode: tenantCode || null,
     tenantName: tenantName || null,
+    tenantHasLogo: tenantHasLogoRaw === 'true',
+    selectedPharmacyId: selectedPharmacyIdRaw ? Number(selectedPharmacyIdRaw) : null,
+    selectedPharmacyName: selectedPharmacyName || null,
+    availablePharmacies,
+    requiresPharmacySelection: requiresPharmacySelectionRaw === 'true',
     tenantFeatures
   };
 }
@@ -49,6 +66,10 @@ export function AuthProvider({ children }) {
 
   async function login(username, password) {
     const response = await loginRequest(username, password);
+    return applySessionResponse(response);
+  }
+
+  function applySessionResponse(response) {
     const next = {
       token: response.token,
       username: response.username,
@@ -56,6 +77,11 @@ export function AuthProvider({ children }) {
       tenantId: response.tenantId ?? null,
       tenantCode: response.tenantCode ?? null,
       tenantName: response.tenantName ?? null,
+      tenantHasLogo: Boolean(response.tenantHasLogo),
+      selectedPharmacyId: response.selectedPharmacyId ?? null,
+      selectedPharmacyName: response.selectedPharmacyName ?? null,
+      availablePharmacies: response.availablePharmacies || [],
+      requiresPharmacySelection: Boolean(response.requiresPharmacySelection),
       tenantFeatures: response.tenantId
         ? {
           billingEnabled: Boolean(response.billingEnabled),
@@ -85,13 +111,36 @@ export function AuthProvider({ children }) {
     } else {
       localStorage.removeItem('tenantName');
     }
+    localStorage.setItem('tenantHasLogo', String(next.tenantHasLogo));
     if (next.tenantFeatures) {
       localStorage.setItem('tenantFeatures', JSON.stringify(next.tenantFeatures));
     } else {
       localStorage.removeItem('tenantFeatures');
     }
+    if (next.selectedPharmacyId !== null) {
+      localStorage.setItem('selectedPharmacyId', String(next.selectedPharmacyId));
+    } else {
+      localStorage.removeItem('selectedPharmacyId');
+    }
+    if (next.selectedPharmacyName) {
+      localStorage.setItem('selectedPharmacyName', next.selectedPharmacyName);
+    } else {
+      localStorage.removeItem('selectedPharmacyName');
+    }
+    localStorage.setItem('availablePharmacies', JSON.stringify(next.availablePharmacies));
+    localStorage.setItem('requiresPharmacySelection', String(next.requiresPharmacySelection));
     setSession(next);
     return next;
+  }
+
+  async function selectPharmacy(pharmacyId) {
+    const response = await selectPharmacyRequest(pharmacyId);
+    return applySessionResponse(response);
+  }
+
+  async function setDefaultPharmacy(pharmacyId) {
+    const response = await setDefaultPharmacyRequest(pharmacyId);
+    return applySessionResponse(response);
   }
 
   function logout() {
@@ -101,7 +150,12 @@ export function AuthProvider({ children }) {
     localStorage.removeItem('tenantId');
     localStorage.removeItem('tenantCode');
     localStorage.removeItem('tenantName');
+    localStorage.removeItem('tenantHasLogo');
     localStorage.removeItem('tenantFeatures');
+    localStorage.removeItem('selectedPharmacyId');
+    localStorage.removeItem('selectedPharmacyName');
+    localStorage.removeItem('availablePharmacies');
+    localStorage.removeItem('requiresPharmacySelection');
     setSession(null);
   }
 
@@ -139,7 +193,9 @@ export function AuthProvider({ children }) {
       logout,
       hasAnyRole,
       hasRole,
-      hasFeature
+        hasFeature,
+        selectPharmacy,
+        setDefaultPharmacy
     };
   }, [session]);
 

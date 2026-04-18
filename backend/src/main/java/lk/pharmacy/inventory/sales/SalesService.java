@@ -48,9 +48,11 @@ public class SalesService {
 
         User currentUser = currentUserService.getCurrentUser();
         Long tenantId = currentUser.getTenant().getId();
+        Long pharmacyId = currentUserService.getCurrentPharmacy().getId();
         Sale sale = new Sale();
         sale.setTransactionId(generateTransactionId());
         sale.setTenant(currentUser.getTenant());
+        sale.setPharmacy(currentUserService.getCurrentPharmacy());
         sale.setCreatedBy(currentUser);
         sale.setCustomerName(trimToNull(request.customerName()));
         sale.setCustomerPhone(trimToNull(request.customerPhone()));
@@ -58,7 +60,7 @@ public class SalesService {
         BigDecimal beforeDiscount = BigDecimal.ZERO;
 
         for (SaleItemRequest itemRequest : request.items()) {
-            Medicine medicine = medicineRepository.findByIdAndTenant_Id(itemRequest.medicineId(), tenantId)
+            Medicine medicine = medicineRepository.findByIdAndTenant_IdAndPharmacy_Id(itemRequest.medicineId(), tenantId, pharmacyId)
                     .orElseThrow(() -> new ApiException("Medicine not found: " + itemRequest.medicineId()));
 
             if (medicine.getQuantity() < itemRequest.quantity()) {
@@ -137,7 +139,8 @@ public class SalesService {
 
     @Transactional(readOnly = true)
     public List<SaleTransactionSummaryResponse> findTransactions(String transactionId, String salesPerson, LocalDate fromDate, LocalDate toDate) {
-        Long tenantId = currentUserService.getCurrentUser().getTenant().getId();
+        Long tenantId = currentUserService.getCurrentTenantId();
+        Long pharmacyId = currentUserService.getCurrentPharmacy().getId();
         Instant start = fromDate == null
                 ? Instant.EPOCH
                 : fromDate.atStartOfDay(ZoneId.systemDefault()).toInstant();
@@ -149,15 +152,16 @@ public class SalesService {
         String username = trimToNull(salesPerson);
         List<Sale> sales;
         if (tx == null && username == null) {
-            sales = saleRepository.findByTenant_IdAndCreatedAtBetweenOrderByCreatedAtDesc(tenantId, start, end);
+            sales = saleRepository.findByTenant_IdAndPharmacy_IdAndCreatedAtBetweenOrderByCreatedAtDesc(tenantId, pharmacyId, start, end);
         } else if (tx == null) {
-            sales = saleRepository.findByTenant_IdAndCreatedAtBetweenAndCreatedBy_UsernameContainingIgnoreCaseOrderByCreatedAtDesc(tenantId, start, end, username);
+            sales = saleRepository.findByTenant_IdAndPharmacy_IdAndCreatedAtBetweenAndCreatedBy_UsernameContainingIgnoreCaseOrderByCreatedAtDesc(tenantId, pharmacyId, start, end, username);
         } else if (username == null) {
-            sales = saleRepository.findByTenant_IdAndTransactionIdContainingIgnoreCaseAndCreatedAtBetweenOrderByCreatedAtDesc(tenantId, tx, start, end);
+            sales = saleRepository.findByTenant_IdAndPharmacy_IdAndTransactionIdContainingIgnoreCaseAndCreatedAtBetweenOrderByCreatedAtDesc(tenantId, pharmacyId, tx, start, end);
         } else {
             sales = saleRepository
-                    .findByTenant_IdAndTransactionIdContainingIgnoreCaseAndCreatedAtBetweenAndCreatedBy_UsernameContainingIgnoreCaseOrderByCreatedAtDesc(
+                    .findByTenant_IdAndPharmacy_IdAndTransactionIdContainingIgnoreCaseAndCreatedAtBetweenAndCreatedBy_UsernameContainingIgnoreCaseOrderByCreatedAtDesc(
                             tenantId,
+                            pharmacyId,
                             tx,
                             start,
                             end,
@@ -170,7 +174,8 @@ public class SalesService {
 
     @Transactional(readOnly = true)
     public Page<SaleTransactionSummaryResponse> findTransactions(String transactionId, String salesPerson, LocalDate fromDate, LocalDate toDate, int page, int size) {
-        Long tenantId = currentUserService.getCurrentUser().getTenant().getId();
+        Long tenantId = currentUserService.getCurrentTenantId();
+        Long pharmacyId = currentUserService.getCurrentPharmacy().getId();
         Instant start = fromDate == null
                 ? Instant.EPOCH
                 : fromDate.atStartOfDay(ZoneId.systemDefault()).toInstant();
@@ -183,15 +188,16 @@ public class SalesService {
         PageRequest pageRequest = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 100));
         Page<Sale> sales;
         if (tx == null && username == null) {
-            sales = saleRepository.findByTenant_IdAndCreatedAtBetweenOrderByCreatedAtDesc(tenantId, start, end, pageRequest);
+            sales = saleRepository.findByTenant_IdAndPharmacy_IdAndCreatedAtBetweenOrderByCreatedAtDesc(tenantId, pharmacyId, start, end, pageRequest);
         } else if (tx == null) {
-            sales = saleRepository.findByTenant_IdAndCreatedAtBetweenAndCreatedBy_UsernameContainingIgnoreCaseOrderByCreatedAtDesc(tenantId, start, end, username, pageRequest);
+            sales = saleRepository.findByTenant_IdAndPharmacy_IdAndCreatedAtBetweenAndCreatedBy_UsernameContainingIgnoreCaseOrderByCreatedAtDesc(tenantId, pharmacyId, start, end, username, pageRequest);
         } else if (username == null) {
-            sales = saleRepository.findByTenant_IdAndTransactionIdContainingIgnoreCaseAndCreatedAtBetweenOrderByCreatedAtDesc(tenantId, tx, start, end, pageRequest);
+            sales = saleRepository.findByTenant_IdAndPharmacy_IdAndTransactionIdContainingIgnoreCaseAndCreatedAtBetweenOrderByCreatedAtDesc(tenantId, pharmacyId, tx, start, end, pageRequest);
         } else {
             sales = saleRepository
-                    .findByTenant_IdAndTransactionIdContainingIgnoreCaseAndCreatedAtBetweenAndCreatedBy_UsernameContainingIgnoreCaseOrderByCreatedAtDesc(
+                    .findByTenant_IdAndPharmacy_IdAndTransactionIdContainingIgnoreCaseAndCreatedAtBetweenAndCreatedBy_UsernameContainingIgnoreCaseOrderByCreatedAtDesc(
                             tenantId,
+                            pharmacyId,
                             tx,
                             start,
                             end,
@@ -205,8 +211,9 @@ public class SalesService {
 
     @Transactional(readOnly = true)
     public List<BillingMedicineOptionResponse> listBillingMedicines() {
-        Long tenantId = currentUserService.getCurrentUser().getTenant().getId();
-        return medicineRepository.findByTenant_Id(tenantId).stream()
+        Long tenantId = currentUserService.getCurrentTenantId();
+        Long pharmacyId = currentUserService.getCurrentPharmacy().getId();
+        return medicineRepository.findByTenant_IdAndPharmacy_Id(tenantId, pharmacyId).stream()
                 .map(medicine -> new BillingMedicineOptionResponse(
                         medicine.getId(),
                         medicine.getName(),
@@ -220,15 +227,17 @@ public class SalesService {
 
     @Transactional(readOnly = true)
     public SaleBillResponse getBillByTransactionId(String transactionId) {
-        Long tenantId = currentUserService.getCurrentUser().getTenant().getId();
-        Sale sale = saleRepository.findByTransactionIdAndTenant_Id(transactionId, tenantId)
+        Long tenantId = currentUserService.getCurrentTenantId();
+        Long pharmacyId = currentUserService.getCurrentPharmacy().getId();
+        Sale sale = saleRepository.findByTransactionIdAndTenant_IdAndPharmacy_Id(transactionId, tenantId, pharmacyId)
                 .orElseThrow(() -> new ApiException("Transaction not found"));
         return toBill(sale);
     }
 
     @Transactional(readOnly = true)
     public SalesSummaryResponse getSalesSummary(SalesPeriod period) {
-        Long tenantId = currentUserService.getCurrentUser().getTenant().getId();
+        Long tenantId = currentUserService.getCurrentTenantId();
+        Long pharmacyId = currentUserService.getCurrentPharmacy().getId();
         ZoneId zone = ZoneId.systemDefault();
         LocalDate now = LocalDate.now(zone);
 
@@ -258,9 +267,9 @@ public class SalesService {
         Instant start = startDate.atStartOfDay(zone).toInstant();
         Instant end = endExclusiveDate.atStartOfDay(zone).toInstant();
 
-        BigDecimal totalSales = saleRepository.sumTotalBetween(tenantId, start, end);
-        BigDecimal totalCost = saleItemRepository.sumCostBetween(tenantId, start, end);
-        long saleCount = saleRepository.countByTenant_IdAndCreatedAtBetween(tenantId, start, end);
+        BigDecimal totalSales = saleRepository.sumTotalBetween(tenantId, pharmacyId, start, end);
+        BigDecimal totalCost = saleItemRepository.sumCostBetween(tenantId, pharmacyId, start, end);
+        long saleCount = saleRepository.countByTenant_IdAndPharmacy_IdAndCreatedAtBetween(tenantId, pharmacyId, start, end);
 
         return new SalesSummaryResponse(
                 period,
@@ -270,14 +279,14 @@ public class SalesService {
                 totalSales,
                 totalCost,
                 totalSales.subtract(totalCost),
-                saleItemRepository.findTopSellingBetween(tenantId, start, end).stream()
+                saleItemRepository.findTopSellingBetween(tenantId, pharmacyId, start, end).stream()
                         .limit(5)
                         .map(row -> new TopMedicineSales(
                                 String.valueOf(row[0]),
                                 ((Number) row[1]).longValue()
                         ))
                         .toList(),
-                saleRepository.summarizeSalesByUser(tenantId, start, end).stream()
+                saleRepository.summarizeSalesByUser(tenantId, pharmacyId, start, end).stream()
                         .map(row -> new UserSalesSummary(
                                 String.valueOf(row[0]),
                                 ((Number) row[1]).longValue(),

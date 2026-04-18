@@ -24,15 +24,20 @@ public class JwtService {
         this.expirationMs = expirationMs;
     }
 
-    public String generateToken(String username, Long tenantId) {
+    public String generateToken(String username, Long tenantId, Long pharmacyId) {
         Instant now = Instant.now();
         return Jwts.builder()
                 .subject(username)
                 .claim("tenantId", tenantId)
+                .claim("pharmacyId", pharmacyId)
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(now.plusMillis(expirationMs)))
                 .signWith(key)
                 .compact();
+    }
+
+    public String generateToken(String username, Long tenantId) {
+        return generateToken(username, tenantId, null);
     }
 
     public String extractUsername(String token) {
@@ -41,16 +46,25 @@ public class JwtService {
 
     public Long extractTenantId(String token) {
         Object tenantId = extractClaims(token).get("tenantId");
-        if (tenantId instanceof Integer value) {
-            return value.longValue();
+        return toLong(tenantId);
+    }
+
+    public Long extractPharmacyId(String token) {
+        Object pharmacyId = extractClaims(token).get("pharmacyId");
+        return toLong(pharmacyId);
+    }
+
+    private Long toLong(Object value) {
+        if (value instanceof Integer intValue) {
+            return intValue.longValue();
         }
-        if (tenantId instanceof Long value) {
-            return value;
+        if (value instanceof Long longValue) {
+            return longValue;
         }
-        if (tenantId instanceof Number value) {
-            return value.longValue();
+        if (value instanceof Number numberValue) {
+            return numberValue.longValue();
         }
-        return tenantId == null ? null : Long.parseLong(String.valueOf(tenantId));
+        return value == null ? null : Long.parseLong(String.valueOf(value));
     }
 
     public boolean isValid(String token, UserDetails userDetails) {

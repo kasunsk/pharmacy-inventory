@@ -10,6 +10,8 @@ public record CreateEmployeeRequest(
         @NotBlank String username,
         @NotBlank String password,
         Set<Role> roles,
+        Set<Long> pharmacyIds,
+        Long defaultPharmacyId,
         String firstName,
         String lastName,
         String phoneNumber,

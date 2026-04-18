@@ -10,6 +10,7 @@ public class TenantUserPrincipal implements UserDetails {
     private final Long userId;
     private final Long tenantId;
     private final String tenantCode;
+    private final Long pharmacyId;
     private final String username;
     private final String password;
     private final boolean enabled;
@@ -18,6 +19,7 @@ public class TenantUserPrincipal implements UserDetails {
     public TenantUserPrincipal(Long userId,
                                Long tenantId,
                                String tenantCode,
+                               Long pharmacyId,
                                String username,
                                String password,
                                boolean enabled,
@@ -25,6 +27,7 @@ public class TenantUserPrincipal implements UserDetails {
         this.userId = userId;
         this.tenantId = tenantId;
         this.tenantCode = tenantCode;
+        this.pharmacyId = pharmacyId;
         this.username = username;
         this.password = password;
         this.enabled = enabled;
@@ -41,6 +44,14 @@ public class TenantUserPrincipal implements UserDetails {
 
     public String getTenantCode() {
         return tenantCode;
+    }
+
+    public Long getPharmacyId() {
+        return pharmacyId;
+    }
+
+    public TenantUserPrincipal withPharmacyId(Long nextPharmacyId) {
+        return new TenantUserPrincipal(userId, tenantId, tenantCode, nextPharmacyId, username, password, enabled, authorities);
     }
 
     @Override

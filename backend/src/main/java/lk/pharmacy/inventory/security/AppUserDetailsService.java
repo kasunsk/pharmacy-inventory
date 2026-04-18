@@ -52,6 +52,7 @@ public class AppUserDetailsService implements UserDetailsService {
                 user.getTenant() == null ? null : user.getTenant().getId(),
                 // Tenant code is not used in auth checks; avoid lazy-loading tenant proxy in filter path.
                 null,
+                null,
                 user.getUsername(),
                 user.getPasswordHash(),
                 user.isEnabled(),

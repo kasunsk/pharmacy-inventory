@@ -38,9 +38,11 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         String token = authHeader.substring(7);
         String username;
         Long tenantId;
+        Long pharmacyId;
         try {
             username = jwtService.extractUsername(token);
             tenantId = jwtService.extractTenantId(token);
+            pharmacyId = jwtService.extractPharmacyId(token);
         } catch (Exception ex) {
             filterChain.doFilter(request, response);
             return;
@@ -55,8 +57,12 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                     userDetails = userDetailsService.loadSuperAdminByUsername(username);
                 }
                 if (jwtService.isValid(token, userDetails)) {
+                    UserDetails contextUserDetails = userDetails;
+                    if (userDetails instanceof TenantUserPrincipal principal) {
+                        contextUserDetails = principal.withPharmacyId(pharmacyId);
+                    }
                     UsernamePasswordAuthenticationToken authToken =
-                            new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+                            new UsernamePasswordAuthenticationToken(contextUserDetails, null, contextUserDetails.getAuthorities());
                     authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authToken);
                 }

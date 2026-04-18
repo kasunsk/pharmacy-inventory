@@ -1,17 +1,20 @@
 package lk.pharmacy.inventory.bootstrap;
 
 import lk.pharmacy.inventory.domain.Medicine;
+import lk.pharmacy.inventory.domain.Pharmacy;
 import lk.pharmacy.inventory.domain.Role;
 import lk.pharmacy.inventory.domain.Sale;
 import lk.pharmacy.inventory.domain.Tenant;
 import lk.pharmacy.inventory.domain.User;
 import lk.pharmacy.inventory.repo.MedicineRepository;
+import lk.pharmacy.inventory.repo.PharmacyRepository;
 import lk.pharmacy.inventory.repo.SaleRepository;
 import lk.pharmacy.inventory.repo.TenantRepository;
 import lk.pharmacy.inventory.repo.UserRepository;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -25,21 +28,25 @@ public class DataInitializer implements CommandLineRunner {
     private final MedicineRepository medicineRepository;
     private final SaleRepository saleRepository;
     private final TenantRepository tenantRepository;
+    private final PharmacyRepository pharmacyRepository;
     private final PasswordEncoder passwordEncoder;
 
     public DataInitializer(UserRepository userRepository,
                            MedicineRepository medicineRepository,
                            SaleRepository saleRepository,
                            TenantRepository tenantRepository,
+                           PharmacyRepository pharmacyRepository,
                            PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.medicineRepository = medicineRepository;
         this.saleRepository = saleRepository;
         this.tenantRepository = tenantRepository;
+        this.pharmacyRepository = pharmacyRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
     @Override
+    @Transactional
     public void run(String... args) {
         Tenant defaultTenant = tenantRepository.findByCode("DEFAULT")
                 .orElseGet(() -> {
@@ -49,14 +56,56 @@ public class DataInitializer implements CommandLineRunner {
                     return tenantRepository.save(tenant);
                 });
 
+        Pharmacy defaultPharmacy = pharmacyRepository.findByTenant_IdAndCodeIgnoreCase(defaultTenant.getId(), "MAIN")
+                .orElseGet(() -> {
+                    Pharmacy pharmacy = new Pharmacy();
+                    pharmacy.setTenant(defaultTenant);
+                    pharmacy.setCode("MAIN");
+                    pharmacy.setName("Main Pharmacy");
+                    return pharmacyRepository.save(pharmacy);
+                });
+
+        if (defaultTenant.getDefaultPharmacy() == null) {
+            defaultTenant.setDefaultPharmacy(defaultPharmacy);
+            tenantRepository.save(defaultTenant);
+        }
+
 
         // Backfill rows created before multi-tenancy was introduced.
         // SUPER_ADMIN users have null tenant intentionally — skip them.
         userRepository.findByTenantIsNull().stream()
                 .filter(user -> !user.hasRole(Role.SUPER_ADMIN))
                 .forEach(user -> user.setTenant(defaultTenant));
-        medicineRepository.findByTenantIsNull().forEach(medicine -> medicine.setTenant(defaultTenant));
-        saleRepository.findByTenantIsNull().forEach(sale -> assignSaleTenant(sale, defaultTenant));
+        medicineRepository.findByTenantIsNull().forEach(medicine -> {
+            medicine.setTenant(defaultTenant);
+            if (medicine.getPharmacy() == null) {
+                medicine.setPharmacy(defaultPharmacy);
+            }
+        });
+        saleRepository.findByTenantIsNull().forEach(sale -> assignSaleTenantAndPharmacy(sale, defaultTenant, defaultPharmacy));
+
+        userRepository.findByTenant_Id(defaultTenant.getId()).forEach(user -> {
+            if (!user.hasRole(Role.SUPER_ADMIN) && user.getAssignedPharmacies().isEmpty()) {
+                user.getAssignedPharmacies().add(defaultPharmacy);
+            }
+            if (user.getDefaultPharmacy() == null && !user.hasRole(Role.SUPER_ADMIN)) {
+                user.setDefaultPharmacy(defaultPharmacy);
+            }
+        });
+
+        medicineRepository.findByTenant_Id(defaultTenant.getId()).forEach(medicine -> {
+            if (medicine.getPharmacy() == null) {
+                medicine.setPharmacy(defaultPharmacy);
+            }
+        });
+
+        saleRepository.findByTenant_IdAndCreatedAtBetweenOrderByCreatedAtDesc(defaultTenant.getId(), java.time.Instant.EPOCH, java.time.Instant.now().plusSeconds(1))
+                .forEach(sale -> {
+                    if (sale.getPharmacy() == null) {
+                        sale.setPharmacy(defaultPharmacy);
+                    }
+                });
+
         userRepository.flush();
         medicineRepository.flush();
         saleRepository.flush();
@@ -74,6 +123,8 @@ public class DataInitializer implements CommandLineRunner {
             user.setUsername("admin");
             user.setPasswordHash(passwordEncoder.encode("admin123"));
             user.setRoles(Set.of(Role.ADMIN));
+            user.setDefaultPharmacy(defaultPharmacy);
+            user.getAssignedPharmacies().add(defaultPharmacy);
             userRepository.save(user);
         });
 
@@ -105,15 +156,20 @@ public class DataInitializer implements CommandLineRunner {
         }
     }
 
-    private void assignSaleTenant(Sale sale, Tenant defaultTenant) {
+    private void assignSaleTenantAndPharmacy(Sale sale, Tenant defaultTenant, Pharmacy defaultPharmacy) {
         if (sale.getTenant() != null) {
+            if (sale.getPharmacy() == null) {
+                sale.setPharmacy(defaultPharmacy);
+            }
             return;
         }
         if (sale.getCreatedBy() != null && sale.getCreatedBy().getTenant() != null) {
             sale.setTenant(sale.getCreatedBy().getTenant());
+            sale.setPharmacy(defaultPharmacy);
             return;
         }
         sale.setTenant(defaultTenant);
+        sale.setPharmacy(defaultPharmacy);
     }
 
     private Medicine medicine(Tenant tenant,
@@ -127,6 +183,10 @@ public class DataInitializer implements CommandLineRunner {
                               int quantity) {
         Medicine medicine = new Medicine();
         medicine.setTenant(tenant);
+        Pharmacy pharmacy = tenant.getDefaultPharmacy();
+        if (pharmacy != null) {
+            medicine.setPharmacy(pharmacy);
+        }
         medicine.setName(name);
         medicine.setBatchNumber(batch);
         medicine.setExpiryDate(expiry);

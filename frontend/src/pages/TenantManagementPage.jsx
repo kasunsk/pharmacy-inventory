@@ -1,10 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
+  createTenantPharmacy,
   createTenant,
+  fetchPharmacyLogoUrl,
+  fetchTenantLogoUrl,
+  fetchTenantPharmacies,
   fetchTenants,
   fetchTenantAudits,
+  updateTenantPharmacyStatus,
   updateTenantConfig,
-  updateTenantStatus
+  updateTenantStatus,
+  uploadPharmacyLogo,
+  uploadTenantLogo
 } from '../api';
 
 function emptyTenantForm() {
@@ -24,6 +31,13 @@ function toConfigPayload(tenant) {
     inventoryEnabled: Boolean(tenant.inventoryEnabled),
     analyticsEnabled: Boolean(tenant.analyticsEnabled),
     aiAssistantEnabled: Boolean(tenant.aiAssistantEnabled)
+  };
+}
+
+function emptyPharmacyForm() {
+  return {
+    code: '',
+    name: ''
   };
 }
 
@@ -54,6 +68,16 @@ function ToggleIcon({ enabled }) {
   );
 }
 
+function StoreIcon() {
+  return (
+    <svg className="icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M3 7h18l-1.5 4.5H4.5z" />
+      <path d="M5 11v8h14v-8" />
+      <path d="M9 19v-5h6v5" />
+    </svg>
+  );
+}
+
 export default function TenantManagementPage() {
   const [tenants, setTenants] = useState([]);
   const [query, setQuery] = useState('');
@@ -65,10 +89,28 @@ export default function TenantManagementPage() {
   const [editingTenant, setEditingTenant] = useState(null);
   const [configForm, setConfigForm] = useState(null);
   const [audits, setAudits] = useState([]);
+  const [pharmacyTenant, setPharmacyTenant] = useState(null);
+  const [pharmacyForm, setPharmacyForm] = useState(emptyPharmacyForm());
+  const [tenantPharmacies, setTenantPharmacies] = useState([]);
+  const [tenantLogoPreview, setTenantLogoPreview] = useState('');
+  const [pharmacyLogoPreviews, setPharmacyLogoPreviews] = useState({});
 
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+    return () => {
+      if (tenantLogoPreview) {
+        URL.revokeObjectURL(tenantLogoPreview);
+      }
+      Object.values(pharmacyLogoPreviews).forEach((value) => {
+        if (value) {
+          URL.revokeObjectURL(value);
+        }
+      });
+    };
+  }, [tenantLogoPreview, pharmacyLogoPreviews]);
 
   const visibleTenants = useMemo(() => {
     const text = query.trim().toLowerCase();
@@ -153,6 +195,155 @@ export default function TenantManagementPage() {
       setError(e.message || 'Failed to update tenant configuration.');
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function openPharmacyModal(tenant) {
+    setPharmacyTenant(tenant);
+    setPharmacyForm(emptyPharmacyForm());
+    setTenantPharmacies([]);
+    setPharmacyLogoPreviews({});
+    setTenantLogoPreview('');
+    setLoading(true);
+    setError('');
+    try {
+      const pharmacies = await fetchTenantPharmacies(tenant.id, false);
+      setTenantPharmacies(pharmacies);
+
+      if (tenant.hasLogo) {
+        try {
+          const tenantLogo = await fetchTenantLogoUrl(tenant.id);
+          setTenantLogoPreview(tenantLogo);
+        } catch (_) {
+          setTenantLogoPreview('');
+        }
+      }
+
+      const previews = {};
+      for (const pharmacy of pharmacies) {
+        if (!pharmacy.hasLogo) {
+          continue;
+        }
+        try {
+          previews[pharmacy.id] = await fetchPharmacyLogoUrl(tenant.id, pharmacy.id);
+        } catch (_) {
+          previews[pharmacy.id] = '';
+        }
+      }
+      setPharmacyLogoPreviews(previews);
+    } catch (e) {
+      setError(e.message || 'Failed to load tenant pharmacies.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function closePharmacyModal() {
+    setPharmacyTenant(null);
+    setPharmacyForm(emptyPharmacyForm());
+    setTenantPharmacies([]);
+    if (tenantLogoPreview) {
+      URL.revokeObjectURL(tenantLogoPreview);
+    }
+    Object.values(pharmacyLogoPreviews).forEach((value) => {
+      if (value) {
+        URL.revokeObjectURL(value);
+      }
+    });
+    setTenantLogoPreview('');
+    setPharmacyLogoPreviews({});
+  }
+
+  async function refreshPharmacies(tenantId) {
+    const pharmacies = await fetchTenantPharmacies(tenantId, false);
+    setTenantPharmacies(pharmacies);
+    return pharmacies;
+  }
+
+  async function handleCreatePharmacy(event) {
+    event.preventDefault();
+    if (!pharmacyTenant) return;
+    setSaving(true);
+    setError('');
+    setSuccess('');
+    try {
+      await createTenantPharmacy(pharmacyTenant.id, {
+        code: pharmacyForm.code.trim().toUpperCase(),
+        name: pharmacyForm.name.trim()
+      });
+      setPharmacyForm(emptyPharmacyForm());
+      await refreshPharmacies(pharmacyTenant.id);
+      await loadData();
+      setSuccess('Pharmacy created successfully.');
+    } catch (e) {
+      setError(e.message || 'Failed to create pharmacy.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleTogglePharmacyStatus(pharmacy) {
+    if (!pharmacyTenant) return;
+    setSaving(true);
+    setError('');
+    setSuccess('');
+    try {
+      await updateTenantPharmacyStatus(pharmacyTenant.id, pharmacy.id, !pharmacy.enabled);
+      await refreshPharmacies(pharmacyTenant.id);
+      setSuccess(`Pharmacy ${pharmacy.code} ${pharmacy.enabled ? 'disabled' : 'enabled'} successfully.`);
+    } catch (e) {
+      setError(e.message || 'Failed to update pharmacy status.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleUploadTenantLogo(event) {
+    if (!pharmacyTenant) return;
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setSaving(true);
+    setError('');
+    setSuccess('');
+    try {
+      await uploadTenantLogo(pharmacyTenant.id, file);
+      if (tenantLogoPreview) {
+        URL.revokeObjectURL(tenantLogoPreview);
+      }
+      const next = await fetchTenantLogoUrl(pharmacyTenant.id);
+      setTenantLogoPreview(next);
+      await loadData();
+      setSuccess('Tenant logo uploaded successfully.');
+    } catch (e) {
+      setError(e.message || 'Failed to upload tenant logo.');
+    } finally {
+      setSaving(false);
+      event.target.value = '';
+    }
+  }
+
+  async function handleUploadPharmacyLogo(pharmacy, event) {
+    if (!pharmacyTenant) return;
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setSaving(true);
+    setError('');
+    setSuccess('');
+    try {
+      await uploadPharmacyLogo(pharmacyTenant.id, pharmacy.id, file);
+      const existing = pharmacyLogoPreviews[pharmacy.id];
+      if (existing) {
+        URL.revokeObjectURL(existing);
+      }
+      const logoUrl = await fetchPharmacyLogoUrl(pharmacyTenant.id, pharmacy.id);
+      setPharmacyLogoPreviews((prev) => ({ ...prev, [pharmacy.id]: logoUrl }));
+      await refreshPharmacies(pharmacyTenant.id);
+      setSuccess(`Logo updated for ${pharmacy.name}.`);
+    } catch (e) {
+      setError(e.message || 'Failed to upload pharmacy logo.');
+    } finally {
+      setSaving(false);
+      event.target.value = '';
     }
   }
 
@@ -288,6 +479,16 @@ export default function TenantManagementPage() {
                       <button
                         type="button"
                         className="icon-btn ghost"
+                        onClick={() => openPharmacyModal(tenant)}
+                        disabled={saving}
+                        title="Manage Pharmacies"
+                        aria-label={`Manage pharmacies for ${tenant.name}`}
+                      >
+                        <StoreIcon />
+                      </button>
+                      <button
+                        type="button"
+                        className="icon-btn ghost"
                         onClick={() => handleToggleStatus(tenant)}
                         disabled={saving}
                         title={tenant.enabled ? 'Disable Tenant' : 'Enable Tenant'}
@@ -348,6 +549,120 @@ export default function TenantManagementPage() {
           </table>
         </div>
       </div>
+
+      {pharmacyTenant && (
+        <div className="modal-backdrop" role="presentation" onMouseDown={closePharmacyModal}>
+          <div className="modal-card" onMouseDown={(event) => event.stopPropagation()}>
+            <div className="page-title-row">
+              <div>
+                <p className="eyebrow">Tenant Pharmacies</p>
+                <h3>{pharmacyTenant.name}</h3>
+              </div>
+              <button type="button" className="ghost icon-btn" onClick={closePharmacyModal} aria-label="Close pharmacy modal">x</button>
+            </div>
+
+            <div className="panel" style={{ marginBottom: 16 }}>
+              <h4>Tenant Logo</h4>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+                {tenantLogoPreview ? (
+                  <img src={tenantLogoPreview} alt="Tenant logo" className="brand-logo" />
+                ) : (
+                  <span className="brand-mark" aria-hidden="true">Rx</span>
+                )}
+                <label className="ghost" style={{ display: 'inline-block' }}>
+                  Upload Tenant Logo
+                  <input type="file" accept="image/*" onChange={handleUploadTenantLogo} disabled={saving} />
+                </label>
+              </div>
+            </div>
+
+            <form className="panel" onSubmit={handleCreatePharmacy}>
+              <h4>Create Pharmacy</h4>
+              <div className="form-grid">
+                <label>
+                  Pharmacy code
+                  <input
+                    required
+                    value={pharmacyForm.code}
+                    onChange={(event) => setPharmacyForm((prev) => ({ ...prev, code: event.target.value.toUpperCase() }))}
+                    placeholder="B01"
+                  />
+                </label>
+                <label>
+                  Pharmacy name
+                  <input
+                    required
+                    value={pharmacyForm.name}
+                    onChange={(event) => setPharmacyForm((prev) => ({ ...prev, name: event.target.value }))}
+                    placeholder="Borella Branch"
+                  />
+                </label>
+              </div>
+              <div className="modal-actions">
+                <button type="submit" disabled={saving || !pharmacyForm.code.trim() || !pharmacyForm.name.trim()}>
+                  {saving ? 'Saving...' : 'Create Pharmacy'}
+                </button>
+              </div>
+            </form>
+
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Code</th>
+                    <th>Name</th>
+                    <th>Status</th>
+                    <th>Logo</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tenantPharmacies.map((pharmacy) => (
+                    <tr key={pharmacy.id}>
+                      <td>{pharmacy.code}</td>
+                      <td>{pharmacy.name}</td>
+                      <td>{pharmacy.enabled ? 'Enabled' : 'Disabled'}</td>
+                      <td>
+                        {pharmacyLogoPreviews[pharmacy.id]
+                          ? <img src={pharmacyLogoPreviews[pharmacy.id]} alt={`${pharmacy.name} logo`} className="brand-logo" />
+                          : '-'}
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                          <button
+                            type="button"
+                            className="icon-btn ghost"
+                            onClick={() => handleTogglePharmacyStatus(pharmacy)}
+                            disabled={saving}
+                            title={pharmacy.enabled ? 'Disable Pharmacy' : 'Enable Pharmacy'}
+                            aria-label={pharmacy.enabled ? `Disable ${pharmacy.name}` : `Enable ${pharmacy.name}`}
+                          >
+                            <ToggleIcon enabled={pharmacy.enabled} />
+                          </button>
+                          <label className="ghost" style={{ display: 'inline-block' }}>
+                            Upload Logo
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={(event) => handleUploadPharmacyLogo(pharmacy, event)}
+                              disabled={saving}
+                            />
+                          </label>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {!tenantPharmacies.length && (
+                    <tr>
+                      <td colSpan="5" className="empty-cell">No pharmacies found for this tenant.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
 
       {editingTenant && configForm && (
         <div className="modal-backdrop" role="presentation" onMouseDown={() => { setEditingTenant(null); setConfigForm(null); }}>

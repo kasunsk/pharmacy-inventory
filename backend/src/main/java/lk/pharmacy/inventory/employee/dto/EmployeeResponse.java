@@ -9,6 +9,8 @@ public record EmployeeResponse(
         String username,
         Set<Role> roles,
         boolean enabled,
+        java.util.Set<Long> pharmacyIds,
+        Long defaultPharmacyId,
         String firstName,
         String lastName,
         String phoneNumber,

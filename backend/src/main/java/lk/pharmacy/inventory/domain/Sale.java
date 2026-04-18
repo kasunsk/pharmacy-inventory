@@ -24,6 +24,11 @@ public class Sale {
     @JoinColumn(name = "tenant_id", nullable = false)
     private Tenant tenant;
 
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JsonIgnore
+    @JoinColumn(name = "pharmacy_id", nullable = false)
+    private Pharmacy pharmacy;
+
     @Column(nullable = false)
     private Instant createdAt = Instant.now();
 
@@ -67,6 +72,14 @@ public class Sale {
 
     public void setTenant(Tenant tenant) {
         this.tenant = tenant;
+    }
+
+    public Pharmacy getPharmacy() {
+        return pharmacy;
+    }
+
+    public void setPharmacy(Pharmacy pharmacy) {
+        this.pharmacy = pharmacy;
     }
 
     public Instant getCreatedAt() {

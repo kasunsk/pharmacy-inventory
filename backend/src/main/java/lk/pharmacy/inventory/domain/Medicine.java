@@ -11,7 +11,7 @@ import java.time.LocalDate;
 @Table(
         name = "medicines",
         uniqueConstraints = {
-                @UniqueConstraint(name = "uk_medicine_tenant_batch", columnNames = {"tenant_id", "batch_number"})
+                @UniqueConstraint(name = "uk_medicine_tenant_pharmacy_batch", columnNames = {"tenant_id", "pharmacy_id", "batch_number"})
         }
 )
 public class Medicine {
@@ -30,6 +30,11 @@ public class Medicine {
     @JoinColumn(name = "tenant_id", nullable = false)
     @JsonIgnore
     private Tenant tenant;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "pharmacy_id", nullable = false)
+    @JsonIgnore
+    private Pharmacy pharmacy;
 
     @Column(nullable = false)
     private LocalDate expiryDate;
@@ -77,6 +82,15 @@ public class Medicine {
 
     public void setTenant(Tenant tenant) {
         this.tenant = tenant;
+    }
+
+    @JsonIgnore
+    public Pharmacy getPharmacy() {
+        return pharmacy;
+    }
+
+    public void setPharmacy(Pharmacy pharmacy) {
+        this.pharmacy = pharmacy;
     }
 
     public LocalDate getExpiryDate() {

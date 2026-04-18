@@ -11,11 +11,17 @@ public record LoginResponse(
         Long tenantId,
         String tenantCode,
         String tenantName,
+        boolean tenantHasLogo,
+        Long selectedPharmacyId,
+        String selectedPharmacyName,
+        boolean requiresPharmacySelection,
+        java.util.List<PharmacySummary> availablePharmacies,
         boolean billingEnabled,
         boolean transactionsEnabled,
         boolean inventoryEnabled,
         boolean analyticsEnabled,
         boolean aiAssistantEnabled
 ) {
+    public record PharmacySummary(Long id, String code, String name, boolean enabled, boolean hasLogo) {}
 }
 

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { createEmployee, deleteEmployee, fetchEmployees, updateEmployee } from '../api';
+import { createEmployee, deleteEmployee, fetchEmployees, fetchMyPharmacies, updateEmployee } from '../api';
 
 const ROLE_OPTIONS = ['BILLING', 'TRANSACTIONS', 'INVENTORY', 'ADMIN'];
 const GENDER_OPTIONS = ['MALE', 'FEMALE'];
@@ -10,6 +10,8 @@ function emptyForm() {
     username: '',
     password: '',
     roles: ['BILLING'],
+    pharmacyIds: [],
+    defaultPharmacyId: '',
     firstName: '',
     lastName: '',
     phoneNumber: '',
@@ -84,10 +86,24 @@ export default function UserManagementPage() {
   const [pageSize, setPageSize] = useState(10);
   const [totalElements, setTotalElements] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
+  const [pharmacyOptions, setPharmacyOptions] = useState([]);
 
   useEffect(() => {
     loadUsers();
   }, [page, pageSize]);
+
+  useEffect(() => {
+    loadPharmacies();
+  }, []);
+
+  async function loadPharmacies() {
+    try {
+      const data = await fetchMyPharmacies();
+      setPharmacyOptions(Array.isArray(data) ? data : []);
+    } catch (e) {
+      setError(e.message);
+    }
+  }
 
   async function loadUsers(nextPage = page, nextSize = pageSize) {
     setLoading(true);
@@ -109,7 +125,12 @@ export default function UserManagementPage() {
     event.preventDefault();
     setError('');
     try {
-      await createEmployee(form);
+      const payload = {
+        ...form,
+        defaultPharmacyId: form.defaultPharmacyId ? Number(form.defaultPharmacyId) : null,
+        pharmacyIds: (form.pharmacyIds || []).map(Number)
+      };
+      await createEmployee(payload);
       setForm(emptyForm());
       setIsCreateOpen(false);
       setPage(0);
@@ -167,11 +188,15 @@ export default function UserManagementPage() {
 
   function openEdit(user) {
     setEditingUser(user);
+    const userPharmacyIds = user.pharmacyIds || [];
+    const resolvedDefault = user.defaultPharmacyId ?? userPharmacyIds[0] ?? '';
     setForm({
       ...emptyForm(),
       username: user.username || '',
       password: '',
       roles: user.roles || [],
+      pharmacyIds: userPharmacyIds,
+      defaultPharmacyId: resolvedDefault,
       firstName: user.firstName || '',
       lastName: user.lastName || '',
       phoneNumber: user.phoneNumber || '',
@@ -191,7 +216,11 @@ export default function UserManagementPage() {
     event.preventDefault();
     setError('');
     try {
-      const payload = { ...form };
+      const payload = {
+        ...form,
+        defaultPharmacyId: form.defaultPharmacyId ? Number(form.defaultPharmacyId) : null,
+        pharmacyIds: (form.pharmacyIds || []).map(Number)
+      };
       if (!payload.password.trim()) {
         delete payload.password;
       }
@@ -213,6 +242,18 @@ export default function UserManagementPage() {
   ];
   const start = totalElements === 0 ? 0 : page * pageSize + 1;
   const end = Math.min((page + 1) * pageSize, totalElements);
+  const selectedIsAdmin = form.roles.includes('ADMIN');
+
+  function togglePharmacySelection(pharmacyId) {
+    const exists = form.pharmacyIds.includes(pharmacyId);
+    const next = exists
+      ? form.pharmacyIds.filter((id) => id !== pharmacyId)
+      : [...form.pharmacyIds, pharmacyId];
+    const defaultPharmacyId = next.includes(Number(form.defaultPharmacyId))
+      ? form.defaultPharmacyId
+      : next[0] ?? '';
+    setForm({ ...form, pharmacyIds: next, defaultPharmacyId });
+  }
 
   return (
     <section>
@@ -261,6 +302,7 @@ export default function UserManagementPage() {
                 <th>Name</th>
                 <th>Contact</th>
                 <th>Roles</th>
+                <th>Pharmacies</th>
                 <th>Status</th>
                 <th>Actions</th>
               </tr>
@@ -294,6 +336,13 @@ export default function UserManagementPage() {
                         </label>
                       ))}
                     </div>
+                  </td>
+                  <td>
+                    {user.roles?.includes('ADMIN')
+                      ? 'All pharmacies'
+                      : (user.pharmacyIds || []).length
+                        ? (user.pharmacyIds || []).map((id) => pharmacyOptions.find((item) => item.id === id)?.name || `#${id}`).join(', ')
+                        : '-'}
                   </td>
                   <td>{user.enabled ? 'Enabled' : 'Disabled'}</td>
                   <td>
@@ -357,7 +406,7 @@ export default function UserManagementPage() {
               ))}
               {!users.length && (
                 <tr>
-                  <td colSpan="6" className="empty-cell">
+                  <td colSpan="7" className="empty-cell">
                     {loading ? 'Loading users...' : 'No users found.'}
                   </td>
                 </tr>
@@ -429,6 +478,44 @@ export default function UserManagementPage() {
                   ))}
                 </select>
               </label>
+            </div>
+
+            <div className="panel" style={{ marginTop: '16px' }}>
+              <h4>Pharmacy Assignment</h4>
+              {selectedIsAdmin ? (
+                <p className="muted">ADMIN users automatically access all pharmacies in the tenant.</p>
+              ) : (
+                <>
+                  <div className="role-pills compact" style={{ marginBottom: '10px' }}>
+                    {pharmacyOptions.map((pharmacy) => (
+                      <label key={pharmacy.id} className="role-pill">
+                        <input
+                          type="checkbox"
+                          checked={form.pharmacyIds.includes(pharmacy.id)}
+                          onChange={() => togglePharmacySelection(pharmacy.id)}
+                        />
+                        {pharmacy.name}
+                      </label>
+                    ))}
+                  </div>
+                  <label>
+                    Default pharmacy
+                    <select
+                      value={form.defaultPharmacyId}
+                      onChange={(event) => setForm({ ...form, defaultPharmacyId: event.target.value })}
+                      required={form.pharmacyIds.length > 0}
+                    >
+                      <option value="">Select default pharmacy</option>
+                      {form.pharmacyIds.map((pharmacyId) => {
+                        const pharmacy = pharmacyOptions.find((item) => item.id === pharmacyId);
+                        return (
+                          <option key={pharmacyId} value={pharmacyId}>{pharmacy?.name || `#${pharmacyId}`}</option>
+                        );
+                      })}
+                    </select>
+                  </label>
+                </>
+              )}
             </div>
 
             <div className="role-pills">
@@ -530,6 +617,43 @@ export default function UserManagementPage() {
                   ))}
                 </select>
               </label>
+            </div>
+            <div className="panel" style={{ marginTop: '16px' }}>
+              <h4>Pharmacy Assignment</h4>
+              {selectedIsAdmin ? (
+                <p className="muted">ADMIN users automatically access all pharmacies in the tenant.</p>
+              ) : (
+                <>
+                  <div className="role-pills compact" style={{ marginBottom: '10px' }}>
+                    {pharmacyOptions.map((pharmacy) => (
+                      <label key={pharmacy.id} className="role-pill">
+                        <input
+                          type="checkbox"
+                          checked={form.pharmacyIds.includes(pharmacy.id)}
+                          onChange={() => togglePharmacySelection(pharmacy.id)}
+                        />
+                        {pharmacy.name}
+                      </label>
+                    ))}
+                  </div>
+                  <label>
+                    Default pharmacy
+                    <select
+                      value={form.defaultPharmacyId}
+                      onChange={(event) => setForm({ ...form, defaultPharmacyId: event.target.value })}
+                      required={form.pharmacyIds.length > 0}
+                    >
+                      <option value="">Select default pharmacy</option>
+                      {form.pharmacyIds.map((pharmacyId) => {
+                        const pharmacy = pharmacyOptions.find((item) => item.id === pharmacyId);
+                        return (
+                          <option key={pharmacyId} value={pharmacyId}>{pharmacy?.name || `#${pharmacyId}`}</option>
+                        );
+                      })}
+                    </select>
+                  </label>
+                </>
+              )}
             </div>
             <div className="role-pills">
               {ROLE_OPTIONS.map((role) => (
