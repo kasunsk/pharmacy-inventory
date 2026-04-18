@@ -112,7 +112,7 @@ Default seed user:
 - `GET /inventory`
 - `GET /inventory/{id}`
 - `POST /sales`
-- `GET /sales?transactionId=&salesPerson=&fromDate=&toDate=`
+- `GET /sales?transactionId=&fromDate=&toDate=`
 - `GET /sales/{transactionId}`
 - `GET /sales/summary?period=DAY|WEEK|MONTH|YEAR`
 

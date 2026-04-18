@@ -358,7 +358,7 @@ Notes:
 
 ### Transaction History
 
-`GET /sales?transactionId=&salesPerson=&fromDate=&toDate=`
+`GET /sales?transactionId=&fromDate=&toDate=`
 
 Requires role: `ADMIN` or `TRANSACTIONS`
 

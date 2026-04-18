@@ -380,9 +380,6 @@ export async function fetchTransactions(filters) {
   if (filters?.transactionId) {
     params.set('transactionId', filters.transactionId);
   }
-  if (filters?.salesPerson) {
-    params.set('salesPerson', filters.salesPerson);
-  }
   if (filters?.fromDate) {
     params.set('fromDate', filters.fromDate);
   }

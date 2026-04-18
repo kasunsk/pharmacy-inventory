@@ -46,14 +46,13 @@ public class SalesController {
     @PreAuthorize("hasAnyRole('ADMIN','TRANSACTIONS')")
     public Page<SaleTransactionSummaryResponse> list(
             @RequestParam(required = false) String transactionId,
-            @RequestParam(required = false) String salesPerson,
             @RequestParam(required = false) LocalDate fromDate,
             @RequestParam(required = false) LocalDate toDate,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
     ) {
         tenantFeatureGuardService.requireTransactionsEnabled();
-        return salesService.findTransactions(transactionId, salesPerson, fromDate, toDate, page, size);
+        return salesService.findTransactions(transactionId, fromDate, toDate, page, size);
     }
 
     @GetMapping("/{transactionId}")

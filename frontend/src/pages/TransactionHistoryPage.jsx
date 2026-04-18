@@ -19,7 +19,6 @@ function EyeIcon() {
 export default function TransactionHistoryPage() {
   const [filters, setFilters] = useState({
     transactionId: '',
-    salesPerson: '',
     fromDate: '',
     toDate: ''
   });
@@ -67,7 +66,7 @@ export default function TransactionHistoryPage() {
   }
 
   function clearFilters() {
-    const emptyFilters = { transactionId: '', salesPerson: '', fromDate: '', toDate: '' };
+    const emptyFilters = { transactionId: '', fromDate: '', toDate: '' };
     setFilters(emptyFilters);
     setSelectedBill(null);
     setPage(0);
@@ -92,14 +91,6 @@ export default function TransactionHistoryPage() {
               placeholder="TXN-..."
               value={filters.transactionId}
               onChange={(event) => setFilters({ ...filters, transactionId: event.target.value })}
-            />
-          </label>
-          <label>
-            Sales person
-            <input
-              placeholder="username"
-              value={filters.salesPerson}
-              onChange={(event) => setFilters({ ...filters, salesPerson: event.target.value })}
             />
           </label>
           <label>

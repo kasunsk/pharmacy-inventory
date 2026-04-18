@@ -147,7 +147,7 @@ public class SalesService {
     }
 
     @Transactional(readOnly = true)
-    public List<SaleTransactionSummaryResponse> findTransactions(String transactionId, String salesPerson, LocalDate fromDate, LocalDate toDate) {
+    public List<SaleTransactionSummaryResponse> findTransactions(String transactionId, LocalDate fromDate, LocalDate toDate) {
         Long tenantId = currentUserService.getCurrentTenantId();
         Long pharmacyId = currentUserService.getCurrentPharmacy().getId();
         Instant start = fromDate == null
@@ -158,31 +158,18 @@ public class SalesService {
                 : toDate.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant();
 
         String tx = trimToNull(transactionId);
-        String username = trimToNull(salesPerson);
         List<Sale> sales;
-        if (tx == null && username == null) {
+        if (tx == null) {
             sales = saleRepository.findByTenant_IdAndPharmacy_IdAndCreatedAtBetweenOrderByCreatedAtDesc(tenantId, pharmacyId, start, end);
-        } else if (tx == null) {
-            sales = saleRepository.findByTenant_IdAndPharmacy_IdAndCreatedAtBetweenAndCreatedBy_UsernameContainingIgnoreCaseOrderByCreatedAtDesc(tenantId, pharmacyId, start, end, username);
-        } else if (username == null) {
-            sales = saleRepository.findByTenant_IdAndPharmacy_IdAndTransactionIdContainingIgnoreCaseAndCreatedAtBetweenOrderByCreatedAtDesc(tenantId, pharmacyId, tx, start, end);
         } else {
-            sales = saleRepository
-                    .findByTenant_IdAndPharmacy_IdAndTransactionIdContainingIgnoreCaseAndCreatedAtBetweenAndCreatedBy_UsernameContainingIgnoreCaseOrderByCreatedAtDesc(
-                            tenantId,
-                            pharmacyId,
-                            tx,
-                            start,
-                            end,
-                            username
-                    );
+            sales = saleRepository.findByTenant_IdAndPharmacy_IdAndTransactionIdContainingIgnoreCaseAndCreatedAtBetweenOrderByCreatedAtDesc(tenantId, pharmacyId, tx, start, end);
         }
 
         return sales.stream().map(this::toSummary).toList();
     }
 
     @Transactional(readOnly = true)
-    public Page<SaleTransactionSummaryResponse> findTransactions(String transactionId, String salesPerson, LocalDate fromDate, LocalDate toDate, int page, int size) {
+    public Page<SaleTransactionSummaryResponse> findTransactions(String transactionId, LocalDate fromDate, LocalDate toDate, int page, int size) {
         Long tenantId = currentUserService.getCurrentTenantId();
         Long pharmacyId = currentUserService.getCurrentPharmacy().getId();
         Instant start = fromDate == null
@@ -193,26 +180,12 @@ public class SalesService {
                 : toDate.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant();
 
         String tx = trimToNull(transactionId);
-        String username = trimToNull(salesPerson);
         PageRequest pageRequest = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 100));
         Page<Sale> sales;
-        if (tx == null && username == null) {
+        if (tx == null) {
             sales = saleRepository.findByTenant_IdAndPharmacy_IdAndCreatedAtBetweenOrderByCreatedAtDesc(tenantId, pharmacyId, start, end, pageRequest);
-        } else if (tx == null) {
-            sales = saleRepository.findByTenant_IdAndPharmacy_IdAndCreatedAtBetweenAndCreatedBy_UsernameContainingIgnoreCaseOrderByCreatedAtDesc(tenantId, pharmacyId, start, end, username, pageRequest);
-        } else if (username == null) {
-            sales = saleRepository.findByTenant_IdAndPharmacy_IdAndTransactionIdContainingIgnoreCaseAndCreatedAtBetweenOrderByCreatedAtDesc(tenantId, pharmacyId, tx, start, end, pageRequest);
         } else {
-            sales = saleRepository
-                    .findByTenant_IdAndPharmacy_IdAndTransactionIdContainingIgnoreCaseAndCreatedAtBetweenAndCreatedBy_UsernameContainingIgnoreCaseOrderByCreatedAtDesc(
-                            tenantId,
-                            pharmacyId,
-                            tx,
-                            start,
-                            end,
-                            username,
-                            pageRequest
-                    );
+            sales = saleRepository.findByTenant_IdAndPharmacy_IdAndTransactionIdContainingIgnoreCaseAndCreatedAtBetweenOrderByCreatedAtDesc(tenantId, pharmacyId, tx, start, end, pageRequest);
         }
 
         return sales.map(this::toSummary);
