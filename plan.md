@@ -82,6 +82,17 @@ Build a tenant-aware Pharmacy Management System that is:
 - Audit dashboard includes filters (date, tenant, user, module), search, summary cards
 - Audit trail monitoring charts for activity trends
 
+### Wave G - Flyway Migration Refactor (Production-Grade Initialization)
+- Removed runtime hardcoded seeding from application startup path (`DataInitializer` no longer performs bootstrap writes)
+- Added Flyway schema migration pipeline:
+  - `db/migration/V1__create_schema.sql` -> creates core schema objects
+  - `db/migration/V2__seed_super_admin.sql` -> idempotent base super-admin seed
+- Added optional demo seed migration:
+  - `db/demo/V3__seed_demo_tenant_data.sql` -> DEMO tenant/pharmacies/admin/inventory
+- Added property-driven migration location control (`app.demo-data.enabled`) via Flyway customizer
+- Switched JPA `ddl-auto` to `none` so schema lifecycle is owned by Flyway only
+- Validation performed with integration tests and startup test for both default and demo-disabled mode
+
 ## 5) Recent Incident Notes
 - **Issue:** `POST /inventory` returned 500 (`ByteBuddyInterceptor` serialization failure)
 - **Root Cause:** Jackson attempted to serialize lazy `tenant` proxy from `Medicine`
@@ -102,12 +113,14 @@ Build a tenant-aware Pharmacy Management System that is:
 - Expand automated integration tests for tenant role matrix and inventory flows
 - Add export (CSV/PDF) for audit trail and analytics reports
 - Add tenant-level branding (logo, name in header)
+- Add Flyway migration test coverage for demo flag matrix (`true/false`) and migration idempotency checks
 - Periodic Postman collection sync with current API contracts
 
 ## 7) Known Limitations
 - Audit trend charts are basic; advanced time-series visualizations are pending
 - Some backward-compatibility code paths remain for legacy tenant configurations
 - Postman collection and API docs may need updates after recent contract changes
+- Legacy environments initialized outside Flyway may require one-time baseline verification before production rollout
 
 ## 8) Delivery Discipline
 - Keep tenant and role checks centralized in services/guards

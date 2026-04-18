@@ -12,8 +12,8 @@ Tenant user request:
 
 ```json
 {
-  "username": "admin@default",
-  "password": "admin123"
+  "username": "admin@demo",
+  "password": "admin@123"
 }
 ```
 
@@ -34,14 +34,15 @@ Response:
   "username": "admin",
   "roles": ["ADMIN"],
   "tenantId": 1,
-  "tenantCode": "DEFAULT",
-  "tenantName": "Default Pharmacy",
+  "tenantCode": "DEMO",
+  "tenantName": "DEMO",
   "tenantHasLogo": true,
   "selectedPharmacyId": 10,
-  "selectedPharmacyName": "Main Pharmacy",
+  "selectedPharmacyName": "Demo Pharmacy P/L Badulla",
   "requiresPharmacySelection": false,
   "availablePharmacies": [
-    { "id": 10, "code": "MAIN", "name": "Main Pharmacy", "enabled": true, "hasLogo": true }
+    { "id": 10, "code": "MAIN", "name": "Demo Pharmacy P/L Badulla", "enabled": true, "hasLogo": true },
+    { "id": 11, "code": "HALIELA", "name": "Demo HaliEla Medicine", "enabled": true, "hasLogo": false }
   ],
   "billingEnabled": true,
   "transactionsEnabled": true,

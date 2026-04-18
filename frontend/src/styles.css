@@ -501,6 +501,33 @@ td select {
   gap: 8px;
 }
 
+.medicine-search-wrap {
+  position: relative;
+}
+
+.medicine-suggestions {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 5;
+  max-height: 220px;
+  overflow: auto;
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 12px 24px rgba(23, 32, 28, 0.12);
+}
+
+.medicine-suggestion-item {
+  width: 100%;
+  justify-content: flex-start;
+  text-align: left;
+}
+
 .role-pills {
   display: flex;
   flex-wrap: wrap;
@@ -556,6 +583,25 @@ td select {
   padding: 8px 10px;
   border-radius: 8px;
   background: var(--soft);
+}
+
+.bill-completion-actions {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.bill-action-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.bill-delivery-input-row {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
 }
 
 .modal-backdrop {

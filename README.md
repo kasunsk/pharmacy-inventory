@@ -126,7 +126,7 @@ pharmacy-inventory/
       pages/ auth/ components/ api.js styles.css
   docs/
     api.md
-  planning.md
+  plan.md
   README.md
 ```
 
@@ -146,6 +146,13 @@ Set-Location "C:\Users\kasun\OneDrive\Desktop\Projects\pharmacy-inventory\backen
 
 Backend default URL: `http://localhost:8080`
 
+Run backend without demo data (schema + base seed only):
+
+```powershell
+Set-Location "C:\Users\kasun\OneDrive\Desktop\Projects\pharmacy-inventory"
+.\gradlew.bat "-Dapp.demo-data.enabled=false" :backend:bootRun
+```
+
 ### Frontend
 
 ```powershell
@@ -161,6 +168,8 @@ Frontend default URL: `http://localhost:5173`
 ### Backend (`backend/src/main/resources/application.yml`)
 - H2 in-memory by default
 - PostgreSQL profile available (`spring.profiles.active=postgres`)
+- Flyway manages schema/data migrations (`db/migration` + optional `db/demo`)
+- Demo seed toggle: `app.demo-data.enabled=true|false`
 - JWT secret/expiration in `app.jwt.*`
 - CORS origin in `app.cors.allowed-origin`
 
@@ -183,7 +192,7 @@ VITE_API_BASE_URL=http://localhost:8080
 4. Add/extend repository queries only when required by service logic.
 5. Update frontend `api.js` client methods and guarded routes.
 6. Add/update tests for service behavior and validation paths.
-7. Update `README.md`, `docs/api.md`, and `planning.md` when contracts change.
+7. Update `README.md`, `docs/api.md`, and `plan.md` when contracts change.
 
 ## Best Practices Applied
 
@@ -198,7 +207,14 @@ VITE_API_BASE_URL=http://localhost:8080
 
 ## Default Seed Credentials
 
-- Tenant staff/admin: `admin@default` / `admin123`
+When `app.demo-data.enabled=true`:
+
+- Tenant staff/admin: `admin@demo` / `admin@123`
 - Super admin: `super_admin` / `admin@123`
+
+Demo tenant seed includes:
+- Tenant: `DEMO`
+- Pharmacies: `Demo Pharmacy P/L Badulla` and `Demo HaliEla Medicine`
+- Isolated inventory samples with different stock levels per pharmacy
 
 > Change default credentials before production use.

@@ -30,8 +30,19 @@ Use `Authorization: Bearer <token>` for protected endpoints.
 
 ## Seed Data
 
-On startup, the backend seeds:
+Schema and seed data are managed by Flyway migrations:
 
-- default admin user (`admin` / `admin123`)
-- 5 pharmacy-related medicine inventory records (if inventory is empty)
+- `backend/src/main/resources/db/migration` (always runs)
+- `backend/src/main/resources/db/demo` (runs only when demo flag is enabled)
+
+Demo data flag:
+
+- `app.demo-data.enabled=true` -> inserts DEMO tenant, demo pharmacies, `admin@demo`, and sample inventory
+- `app.demo-data.enabled=false` -> skips demo inserts
+
+On startup, Flyway ensures:
+
+- schema is created first
+- base system seed (super admin) is applied idempotently
+- demo seed runs only if enabled and remains idempotent
 

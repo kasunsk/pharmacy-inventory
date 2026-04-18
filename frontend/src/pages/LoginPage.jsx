@@ -7,8 +7,8 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [username, setUsername] = useState('admin@default');
-  const [password, setPassword] = useState('admin123');
+  const [username, setUsername] = useState('admin@demo');
+  const [password, setPassword] = useState('admin@123');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -68,7 +68,7 @@ export default function LoginPage() {
             placeholder="username@tenant"
           />
           <small style={{ color: 'var(--color-text-muted, #888)', marginTop: '4px', display: 'block' }}>
-            Format: <strong>username@tenant</strong> &nbsp;(e.g. admin@default)
+            Format: <strong>username@tenant</strong> &nbsp;(e.g. admin@demo)
           </small>
         </label>
         <label>

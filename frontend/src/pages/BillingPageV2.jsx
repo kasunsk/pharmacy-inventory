@@ -20,6 +20,7 @@ function round2(value) {
 
 function emptyRow() {
   return {
+    medicineQuery: '',
     medicineId: '',
     quantity: 1,
     unitType: '',
@@ -41,6 +42,9 @@ export default function BillingPageV2() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [latestBill, setLatestBill] = useState(null);
+  const [completionAction, setCompletionAction] = useState('');
+  const [deliveryValue, setDeliveryValue] = useState('');
+  const [completionMessage, setCompletionMessage] = useState('');
 
   const inventoryById = useMemo(() => new Map(inventory.map((item) => [String(item.id), item])), [inventory]);
 
@@ -104,8 +108,15 @@ export default function BillingPageV2() {
     const next = [...rows];
     next[index] = { ...next[index], ...patch };
 
+    if (patch.medicineQuery !== undefined && patch.medicineId === undefined) {
+      next[index].medicineId = '';
+      next[index].unitType = '';
+      next[index].sellingPrice = 0;
+    }
+
     if (patch.medicineId !== undefined) {
       const selected = inventoryById.get(String(next[index].medicineId));
+      next[index].medicineQuery = selected?.name || next[index].medicineQuery;
       next[index].unitType = selected?.unitType || '';
       next[index].sellingPrice = Number(selected?.sellingPrice || 0);
     }
@@ -170,6 +181,23 @@ export default function BillingPageV2() {
     };
   }
 
+  function filteredMedicines(query) {
+    const text = query.trim().toLowerCase();
+    if (text.length < 2) {
+      return [];
+    }
+    return inventory
+      .filter((item) => item.name.toLowerCase().includes(text))
+      .slice(0, 8);
+  }
+
+  function selectMedicineFromSearch(index, medicine) {
+    updateRow(index, {
+      medicineId: String(medicine.id),
+      medicineQuery: medicine.name
+    });
+  }
+
   async function submitSale(event) {
     event.preventDefault();
     setSaving(true);
@@ -198,6 +226,9 @@ export default function BillingPageV2() {
       };
       const bill = await createPrescriptionSale(payload);
       setLatestBill(bill);
+      setCompletionAction('');
+      setDeliveryValue('');
+      setCompletionMessage('');
       setRows([emptyRow()]);
       setCustomerName('');
       setCustomerPhone('');
@@ -207,6 +238,34 @@ export default function BillingPageV2() {
     } finally {
       setSaving(false);
     }
+  }
+
+  function handleCompletionAction(action) {
+    setCompletionAction(action);
+    setDeliveryValue('');
+    if (action === 'PRINT') {
+      setCompletionMessage('Print simulation ready. Open browser print preview to demonstrate.');
+      return;
+    }
+    setCompletionMessage('');
+  }
+
+  function submitDeliveryAction() {
+    const value = deliveryValue.trim();
+    if (!completionAction || completionAction === 'PRINT') {
+      return;
+    }
+    if (!value) {
+      setCompletionMessage(completionAction === 'EMAIL'
+        ? 'Please enter a customer email address.'
+        : 'Please enter a customer phone number.');
+      return;
+    }
+    if (completionAction === 'EMAIL') {
+      setCompletionMessage(`Demo only: Bill sent via email to ${value}.`);
+      return;
+    }
+    setCompletionMessage(`Demo only: Bill sent via SMS to ${value}.`);
   }
 
   return (
@@ -255,21 +314,36 @@ export default function BillingPageV2() {
               {calculatedRows.map((row, index) => (
                 <tr key={index}>
                   <td>
-                    <select
-                      required
-                      value={row.medicineId}
-                      onChange={(event) => updateRow(index, { medicineId: event.target.value })}
-                    >
-                      <option value="">Select medicine</option>
-                      {inventory.map((item) => {
-                        const out = Number(item.quantity) <= 0;
-                        return (
-                          <option key={item.id} value={item.id} disabled={out}>
-                            {item.name} (stock: {item.quantity}){out ? ' - Out of stock' : ''}
-                          </option>
-                        );
-                      })}
-                    </select>
+                    <div className="medicine-search-wrap">
+                      <input
+                        required
+                        value={row.medicineQuery}
+                        onChange={(event) => updateRow(index, { medicineQuery: event.target.value })}
+                        placeholder="Type at least 2 characters"
+                      />
+                      {row.medicineQuery.trim().length >= 2 && !row.medicineId && (
+                        <div className="medicine-suggestions" role="listbox">
+                          {filteredMedicines(row.medicineQuery).map((item) => {
+                            const out = Number(item.quantity) <= 0;
+                            return (
+                              <button
+                                key={item.id}
+                                type="button"
+                                className="ghost medicine-suggestion-item"
+                                onMouseDown={(event) => event.preventDefault()}
+                                onClick={() => !out && selectMedicineFromSearch(index, item)}
+                                disabled={out}
+                              >
+                                {item.name} (stock: {item.quantity}){out ? ' - Out of stock' : ''}
+                              </button>
+                            );
+                          })}
+                          {filteredMedicines(row.medicineQuery).length === 0 && (
+                            <p className="muted">No matching medicines found.</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </td>
                   <td><input value={row.unitType} readOnly /></td>
                   <td><input value={money(row.sellingPrice)} readOnly /></td>
@@ -388,6 +462,37 @@ export default function BillingPageV2() {
             <span>Total before discount: {money(latestBill.totalBeforeDiscount)}</span>
             <span>Discount: {money(latestBill.discountAmount)}</span>
             <span className="strong">Total amount: {money(latestBill.totalAmount)}</span>
+          </div>
+
+          <div className="bill-completion-actions">
+            <h4>Bill completion options (Demo)</h4>
+            <div className="bill-action-buttons">
+              <button type="button" className="ghost" onClick={() => handleCompletionAction('PRINT')}>Print Bill</button>
+              <button type="button" className="ghost" onClick={() => handleCompletionAction('EMAIL')}>Send via Email</button>
+              <button type="button" className="ghost" onClick={() => handleCompletionAction('SMS')}>Send via SMS</button>
+            </div>
+            {completionAction === 'EMAIL' && (
+              <div className="bill-delivery-input-row">
+                <input
+                  type="email"
+                  placeholder="customer@example.com"
+                  value={deliveryValue}
+                  onChange={(event) => setDeliveryValue(event.target.value)}
+                />
+                <button type="button" onClick={submitDeliveryAction}>Simulate Email</button>
+              </div>
+            )}
+            {completionAction === 'SMS' && (
+              <div className="bill-delivery-input-row">
+                <input
+                  placeholder="0771234567"
+                  value={deliveryValue}
+                  onChange={(event) => setDeliveryValue(event.target.value)}
+                />
+                <button type="button" onClick={submitDeliveryAction}>Simulate SMS</button>
+              </div>
+            )}
+            {completionMessage && <p className="success-banner">{completionMessage}</p>}
           </div>
         </article>
       )}
