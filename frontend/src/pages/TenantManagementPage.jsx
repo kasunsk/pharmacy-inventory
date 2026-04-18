@@ -19,6 +19,9 @@ function emptyTenantForm() {
     code: '',
     name: '',
     adminUsername: '',
+    adminFirstName: '',
+    adminLastName: '',
+    adminEmail: '',
     adminPassword: '',
     adminGender: ''
   };
@@ -36,7 +39,6 @@ function toConfigPayload(tenant) {
 
 function emptyPharmacyForm() {
   return {
-    code: '',
     name: ''
   };
 }
@@ -92,6 +94,7 @@ export default function TenantManagementPage() {
   const [pharmacyTenant, setPharmacyTenant] = useState(null);
   const [pharmacyForm, setPharmacyForm] = useState(emptyPharmacyForm());
   const [tenantPharmacies, setTenantPharmacies] = useState([]);
+  const [createTenantLogoFile, setCreateTenantLogoFile] = useState(null);
   const [tenantLogoPreview, setTenantLogoPreview] = useState('');
   const [pharmacyLogoPreviews, setPharmacyLogoPreviews] = useState({});
 
@@ -142,15 +145,26 @@ export default function TenantManagementPage() {
     setError('');
     setSuccess('');
     try {
-      await createTenant({
+      const createdTenant = await createTenant({
         code: form.code.trim().toUpperCase(),
         name: form.name.trim(),
         adminUsername: form.adminUsername.trim(),
+        adminFirstName: form.adminFirstName.trim(),
+        adminLastName: form.adminLastName.trim(),
+        adminEmail: form.adminEmail.trim(),
         adminPassword: form.adminPassword,
         adminGender: form.adminGender
       });
+
+      if (createTenantLogoFile && createdTenant?.id) {
+        await uploadTenantLogo(createdTenant.id, createTenantLogoFile);
+      }
+
       setForm(emptyTenantForm());
-      setSuccess('Tenant and tenant admin user created successfully.');
+      setCreateTenantLogoFile(null);
+      setSuccess(createTenantLogoFile
+        ? 'Tenant, admin user, and tenant logo created successfully.'
+        : 'Tenant and tenant admin user created successfully.');
       await loadData();
     } catch (e) {
       setError(e.message || 'Failed to create tenant.');
@@ -268,7 +282,6 @@ export default function TenantManagementPage() {
     setSuccess('');
     try {
       await createTenantPharmacy(pharmacyTenant.id, {
-        code: pharmacyForm.code.trim().toUpperCase(),
         name: pharmacyForm.name.trim()
       });
       setPharmacyForm(emptyPharmacyForm());
@@ -393,6 +406,34 @@ export default function TenantManagementPage() {
             />
           </label>
           <label>
+            Tenant admin first name
+            <input
+              required
+              placeholder="Nimal"
+              value={form.adminFirstName}
+              onChange={(event) => setForm({ ...form, adminFirstName: event.target.value })}
+            />
+          </label>
+          <label>
+            Tenant admin last name
+            <input
+              required
+              placeholder="Perera"
+              value={form.adminLastName}
+              onChange={(event) => setForm({ ...form, adminLastName: event.target.value })}
+            />
+          </label>
+          <label>
+            Tenant admin email
+            <input
+              required
+              type="email"
+              placeholder="admin@example.com"
+              value={form.adminEmail}
+              onChange={(event) => setForm({ ...form, adminEmail: event.target.value })}
+            />
+          </label>
+          <label>
             Tenant admin password
             <input
               required
@@ -414,11 +455,27 @@ export default function TenantManagementPage() {
               <option value="FEMALE">FEMALE</option>
             </select>
           </label>
+          <label>
+            Tenant logo (optional)
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(event) => setCreateTenantLogoFile(event.target.files?.[0] || null)}
+            />
+          </label>
         </div>
         <div className="modal-actions">
           <button
             type="submit"
-            disabled={saving || !form.code.trim() || !form.name.trim() || !form.adminUsername.trim() || !form.adminPassword.trim() || !form.adminGender}
+            disabled={saving
+              || !form.code.trim()
+              || !form.name.trim()
+              || !form.adminUsername.trim()
+              || !form.adminFirstName.trim()
+              || !form.adminLastName.trim()
+              || !form.adminEmail.trim()
+              || !form.adminPassword.trim()
+              || !form.adminGender}
           >
             {saving ? 'Saving...' : 'Create Tenant'}
           </button>
@@ -580,15 +637,6 @@ export default function TenantManagementPage() {
               <h4>Create Pharmacy</h4>
               <div className="form-grid">
                 <label>
-                  Pharmacy code
-                  <input
-                    required
-                    value={pharmacyForm.code}
-                    onChange={(event) => setPharmacyForm((prev) => ({ ...prev, code: event.target.value.toUpperCase() }))}
-                    placeholder="B01"
-                  />
-                </label>
-                <label>
                   Pharmacy name
                   <input
                     required
@@ -599,7 +647,7 @@ export default function TenantManagementPage() {
                 </label>
               </div>
               <div className="modal-actions">
-                <button type="submit" disabled={saving || !pharmacyForm.code.trim() || !pharmacyForm.name.trim()}>
+                <button type="submit" disabled={saving || !pharmacyForm.name.trim()}>
                   {saving ? 'Saving...' : 'Create Pharmacy'}
                 </button>
               </div>

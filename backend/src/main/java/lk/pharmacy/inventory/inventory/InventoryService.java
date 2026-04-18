@@ -3,6 +3,7 @@ package lk.pharmacy.inventory.inventory;
 import lk.pharmacy.inventory.domain.MedicineAuditLog;
 import lk.pharmacy.inventory.domain.Medicine;
 import lk.pharmacy.inventory.exception.ApiException;
+import lk.pharmacy.inventory.inventory.dto.InventoryAlertsSummaryResponse;
 import lk.pharmacy.inventory.inventory.dto.MedicineRequest;
 import lk.pharmacy.inventory.inventory.dto.UpdateMedicineRequest;
 import lk.pharmacy.inventory.repo.MedicineAuditLogRepository;
@@ -19,6 +20,9 @@ import java.util.List;
 
 @Service
 public class InventoryService {
+
+    private static final int MAX_LOW_STOCK_THRESHOLD = 100_000;
+    private static final int MAX_EXPIRY_DAYS = 3650;
 
     private final MedicineRepository medicineRepository;
     private final MedicineAuditLogRepository auditLogRepository;
@@ -91,6 +95,23 @@ public class InventoryService {
         Long tenantId = currentUserService.getCurrentTenantId();
         Long pharmacyId = currentUserService.getCurrentPharmacy().getId();
         return medicineRepository.findByExpiryDateBeforeAndTenant_IdAndPharmacy_Id(date, tenantId, pharmacyId);
+    }
+
+    public InventoryAlertsSummaryResponse getAlertsSummary(int lowStockThreshold, int expiryDays) {
+        int safeThreshold = Math.min(Math.max(lowStockThreshold, 0), MAX_LOW_STOCK_THRESHOLD);
+        int safeExpiryDays = Math.min(Math.max(expiryDays, 0), MAX_EXPIRY_DAYS);
+        LocalDate expiryCutoffDate = LocalDate.now().plusDays(safeExpiryDays);
+
+        int lowStockCount = lowStock(safeThreshold).size();
+        int expiringSoonCount = expiringBefore(expiryCutoffDate).size();
+
+        return new InventoryAlertsSummaryResponse(
+                lowStockCount,
+                expiringSoonCount,
+                safeThreshold,
+                safeExpiryDays,
+                expiryCutoffDate
+        );
     }
 
     private void apply(Medicine medicine, MedicineRequest request) {

@@ -100,12 +100,15 @@ All endpoints below require `ROLE_SUPER_ADMIN`.
   "code": "NEW01",
   "name": "New Pharmacy",
   "adminUsername": "admin",
+  "adminFirstName": "Nimal",
+  "adminLastName": "Perera",
+  "adminEmail": "admin@newpharmacy.lk",
   "adminPassword": "admin123",
   "adminGender": "MALE"
 }
 ```
 
-`adminGender` must be `MALE` or `FEMALE`.
+`adminGender` must be `MALE` or `FEMALE`. `adminFirstName`, `adminLastName`, and `adminEmail` are required.
 
 ### Update Tenant Status
 
@@ -147,10 +150,11 @@ Compatibility alias for admin portal endpoints is also available under `/super-a
 
 ```json
 {
-  "code": "B01",
   "name": "Borella Branch"
 }
 ```
+
+Pharmacy code is generated automatically by the system (for example, `PH001`, `PH002`, ...).
 
 ### Update Pharmacy Status
 
@@ -298,6 +302,22 @@ Notes:
 ### Expiry Alert
 
 `GET /inventory/alerts/expiry?days=30`
+
+### Alerts Summary
+
+`GET /inventory/alerts/summary?lowStockThreshold=10&expiryDays=30`
+
+Response:
+
+```json
+{
+  "lowStockCount": 4,
+  "expiringSoonCount": 3,
+  "lowStockThreshold": 10,
+  "expiryWithinDays": 30,
+  "expiryCutoffDate": "2026-05-18"
+}
+```
 
 ## Billing and Transactions
 

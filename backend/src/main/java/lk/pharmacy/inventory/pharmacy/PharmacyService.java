@@ -19,7 +19,6 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Set;
 
 @Service
@@ -54,15 +53,11 @@ public class PharmacyService {
     public PharmacyResponse createPharmacy(Long tenantId, CreatePharmacyRequest request) {
         Tenant tenant = tenantRepository.findById(tenantId)
                 .orElseThrow(() -> new ApiException("Tenant not found"));
-
-        String code = request.code().trim().toUpperCase(Locale.ROOT);
-        if (pharmacyRepository.findByTenant_IdAndCodeIgnoreCase(tenantId, code).isPresent()) {
-            throw new ApiException("Pharmacy code already exists in this tenant");
-        }
+        String generatedCode = generatePharmacyCode(tenantId);
 
         Pharmacy pharmacy = new Pharmacy();
         pharmacy.setTenant(tenant);
-        pharmacy.setCode(code);
+        pharmacy.setCode(generatedCode);
         pharmacy.setName(request.name().trim());
         pharmacy = pharmacyRepository.save(pharmacy);
 
@@ -71,6 +66,36 @@ public class PharmacyService {
             tenantRepository.save(tenant);
         }
         return toResponse(pharmacy);
+    }
+
+    private String generatePharmacyCode(Long tenantId) {
+        int nextSequence = pharmacyRepository.findByTenant_IdOrderByNameAsc(tenantId).stream()
+                .map(Pharmacy::getCode)
+                .map(this::extractPharmacySequence)
+                .max(Integer::compareTo)
+                .orElse(0) + 1;
+
+        String candidate = formatPharmacyCode(nextSequence);
+        while (pharmacyRepository.findByTenant_IdAndCodeIgnoreCase(tenantId, candidate).isPresent()) {
+            nextSequence++;
+            candidate = formatPharmacyCode(nextSequence);
+        }
+        return candidate;
+    }
+
+    private int extractPharmacySequence(String code) {
+        if (code == null || !code.matches("PH\\d{3}")) {
+            return 0;
+        }
+        try {
+            return Integer.parseInt(code.substring(2));
+        } catch (NumberFormatException ignored) {
+            return 0;
+        }
+    }
+
+    private String formatPharmacyCode(int sequence) {
+        return String.format("PH%03d", sequence);
     }
 
     @Transactional
@@ -170,11 +195,16 @@ public class PharmacyService {
 
     @Transactional(readOnly = true)
     public LogoContent getCurrentPharmacyLogo() {
+        User user = currentUserService.getCurrentTenantUser();
         Pharmacy pharmacy = currentUserService.getCurrentPharmacy();
-        if (pharmacy.getLogoData() == null || pharmacy.getLogoData().length == 0) {
+        if (pharmacy.getLogoData() != null && pharmacy.getLogoData().length > 0) {
+            return new LogoContent(pharmacy.getLogoData(), resolveContentType(pharmacy.getLogoContentType()));
+        }
+        Tenant tenant = user.getTenant();
+        if (tenant.getLogoData() == null || tenant.getLogoData().length == 0) {
             throw new ApiException("Pharmacy logo not found");
         }
-        return new LogoContent(pharmacy.getLogoData(), resolveContentType(pharmacy.getLogoContentType()));
+        return new LogoContent(tenant.getLogoData(), resolveContentType(tenant.getLogoContentType()));
     }
 
     private void applyLogo(Pharmacy pharmacy, MultipartFile file) {

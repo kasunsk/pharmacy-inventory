@@ -23,12 +23,15 @@ import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.Set;
 import java.util.UUID;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -111,6 +114,27 @@ class PharmacyIsolationIntegrationTest {
                 .andExpect(jsonPath("$.content[0].name").value("Amoxicillin-B"));
     }
 
+    @Test
+    void shouldFallbackToTenantLogoWhenSelectedPharmacyHasNoLogo() throws Exception {
+        TestFixture fixture = createFixture();
+
+        User admin = new User();
+        admin.setTenant(fixture.tenant);
+        admin.setUsername("logo_" + UUID.randomUUID().toString().substring(0, 8));
+        admin.setPasswordHash(passwordEncoder.encode("pass123"));
+        admin.setRoles(Set.of(Role.ADMIN));
+        admin.setDefaultPharmacy(fixture.pharmacyA);
+        userRepository.save(admin);
+
+        String token = loginAndExtractToken(admin.getUsername() + "@" + fixture.tenant.getCode(), "pass123");
+
+        mockMvc.perform(get("/branding/pharmacy/logo")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", "image/png"))
+                .andExpect(content().bytes(fixture.tenantLogoBytes));
+    }
+
     private String loginAndExtractToken(String username, String password) throws Exception {
         String payload = "{\"username\":\"" + username + "\",\"password\":\"" + password + "\"}";
         MvcResult loginResult = mockMvc.perform(post("/auth/login")
@@ -129,6 +153,9 @@ class PharmacyIsolationIntegrationTest {
         Tenant tenant = new Tenant();
         tenant.setCode("ISO" + suffix);
         tenant.setName("Isolation Tenant " + suffix);
+        byte[] tenantLogo = ("tenant-logo-" + suffix).getBytes(StandardCharsets.UTF_8);
+        tenant.setLogoData(tenantLogo);
+        tenant.setLogoContentType("image/png");
         tenant = tenantRepository.save(tenant);
 
         Pharmacy pharmacyA = new Pharmacy();
@@ -172,14 +199,15 @@ class PharmacyIsolationIntegrationTest {
         medicineInPharmacyB.setQuantity(80);
         medicineInPharmacyB = medicineRepository.save(medicineInPharmacyB);
 
-        return new TestFixture(tenant, pharmacyA, pharmacyB, medicineInPharmacyA, medicineInPharmacyB);
+        return new TestFixture(tenant, pharmacyA, pharmacyB, medicineInPharmacyA, medicineInPharmacyB, tenantLogo);
     }
 
     private record TestFixture(Tenant tenant,
                                Pharmacy pharmacyA,
                                Pharmacy pharmacyB,
                                Medicine medicineInPharmacyA,
-                               Medicine medicineInPharmacyB) {
+                               Medicine medicineInPharmacyB,
+                               byte[] tenantLogoBytes) {
     }
 }
 

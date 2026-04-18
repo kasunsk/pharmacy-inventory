@@ -2,6 +2,7 @@ package lk.pharmacy.inventory.inventory;
 
 import jakarta.validation.Valid;
 import lk.pharmacy.inventory.domain.Medicine;
+import lk.pharmacy.inventory.inventory.dto.InventoryAlertsSummaryResponse;
 import lk.pharmacy.inventory.inventory.dto.MedicineRequest;
 import lk.pharmacy.inventory.inventory.dto.UpdateMedicineRequest;
 import lk.pharmacy.inventory.tenant.TenantFeatureGuardService;
@@ -75,6 +76,16 @@ public class InventoryController {
     public List<Medicine> expiry(@RequestParam(defaultValue = "30") int days) {
         tenantFeatureGuardService.requireInventoryEnabled();
         return inventoryService.expiringBefore(LocalDate.now().plusDays(days));
+    }
+
+    @GetMapping("/alerts/summary")
+    @PreAuthorize("hasAnyRole('ADMIN','INVENTORY','BILLING','TRANSACTIONS')")
+    public InventoryAlertsSummaryResponse alertsSummary(
+            @RequestParam(defaultValue = "10") int lowStockThreshold,
+            @RequestParam(defaultValue = "30") int expiryDays
+    ) {
+        tenantFeatureGuardService.requireInventoryEnabled();
+        return inventoryService.getAlertsSummary(lowStockThreshold, expiryDays);
     }
 }
 

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../auth/AuthContext';
-import { createMedicine, fetchInventory, updateMedicine } from '../api';
+import { createMedicine, fetchInventory, fetchInventoryAlertsSummary, updateMedicine } from '../api';
 
 const UNIT_TYPES = ['tablet', 'capsule', 'box', 'card', 'bottle', 'sachet', 'tube', 'vial'];
 const PAGE_SIZES = [5, 10, 20, 50];
@@ -171,6 +171,9 @@ export default function InventoryListPage() {
   const [viewingItem, setViewingItem] = useState(null);
   const [form, setForm] = useState(emptyForm());
   const [modificationReason, setModificationReason] = useState('');
+  const [alertsSummary, setAlertsSummary] = useState(null);
+  const [alertsLoading, setAlertsLoading] = useState(false);
+  const [alertsError, setAlertsError] = useState('');
 
   const filtered = useMemo(() => {
     const value = filter.trim().toLowerCase();
@@ -186,6 +189,7 @@ export default function InventoryListPage() {
 
   useEffect(() => {
     loadInventory();
+    loadAlertsSummary();
   }, [page, pageSize]);
 
   async function loadInventory(nextPage = page, nextSize = pageSize) {
@@ -202,6 +206,23 @@ export default function InventoryListPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function loadAlertsSummary() {
+    setAlertsLoading(true);
+    setAlertsError('');
+    try {
+      const data = await fetchInventoryAlertsSummary();
+      setAlertsSummary(data);
+    } catch (e) {
+      setAlertsError(e.message);
+    } finally {
+      setAlertsLoading(false);
+    }
+  }
+
+  async function handleRefresh() {
+    await Promise.all([loadInventory(), loadAlertsSummary()]);
   }
 
   function openAdd() {
@@ -237,7 +258,7 @@ export default function InventoryListPage() {
       await createMedicine(toPayload(form));
       closeModal();
       setPage(0);
-      await loadInventory(0, pageSize);
+      await Promise.all([loadInventory(0, pageSize), loadAlertsSummary()]);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -259,7 +280,7 @@ export default function InventoryListPage() {
         modificationReason: modificationReason.trim()
       });
       closeModal();
-      await loadInventory();
+      await Promise.all([loadInventory(), loadAlertsSummary()]);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -280,7 +301,7 @@ export default function InventoryListPage() {
           <p>Search, review, and maintain pharmacy stock with audit-ready change reasons.</p>
         </div>
         <div className="title-actions">
-          <button type="button" className="ghost" onClick={loadInventory} disabled={loading}>
+          <button type="button" className="ghost" onClick={handleRefresh} disabled={loading || alertsLoading}>
             {loading ? 'Refreshing...' : 'Refresh'}
           </button>
           {canManageInventory && <button type="button" onClick={openAdd}>Add New</button>}
@@ -288,6 +309,26 @@ export default function InventoryListPage() {
       </div>
 
       {error && <p className="error">{error}</p>}
+      {alertsError && <p className="error">{alertsError}</p>}
+
+      <div className="summary-grid">
+        <article className="summary-card">
+          <h3>Low stock medicines</h3>
+          <p>{alertsLoading ? '...' : alertsSummary?.lowStockCount ?? '-'}</p>
+        </article>
+        <article className="summary-card">
+          <h3>Expiring soon</h3>
+          <p>{alertsLoading ? '...' : alertsSummary?.expiringSoonCount ?? '-'}</p>
+        </article>
+        <article className="summary-card">
+          <h3>Alert window</h3>
+          <p>
+            {alertsLoading
+              ? '...'
+              : `Qty <= ${alertsSummary?.lowStockThreshold ?? 10} | ${alertsSummary?.expiryWithinDays ?? 30} days`}
+          </p>
+        </article>
+      </div>
 
       <div className="panel table-panel">
         <div className="table-toolbar">

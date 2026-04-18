@@ -37,6 +37,7 @@ The system is designed for operational pharmacy workflows:
   - Unit type, cost price, selling price, quantity
   - Derived profit per unit (UI)
   - Low-stock and expiry alerts
+  - Alerts summary endpoint: `GET /inventory/alerts/summary`
   - Stable API responses (tenant lazy-proxy serialization fix)
 - **Transactions & Analytics**
   - Search by ID/date/salesperson

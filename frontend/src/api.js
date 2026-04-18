@@ -264,6 +264,24 @@ export async function fetchInventory(options) {
   return isPagedRequest ? data : data.content || data;
 }
 
+export async function fetchInventoryAlertsSummary(options = {}) {
+  const lowStockThreshold = options.lowStockThreshold ?? 10;
+  const expiryDays = options.expiryDays ?? 30;
+  const params = new URLSearchParams({
+    lowStockThreshold: String(lowStockThreshold),
+    expiryDays: String(expiryDays)
+  });
+  const response = await fetch(`${API_BASE}/inventory/alerts/summary?${params.toString()}`, {
+    headers: {
+      ...authHeaders()
+    }
+  });
+  if (!response.ok) {
+    throw await parseApiError(response, 'Failed to fetch inventory alerts summary.');
+  }
+  return response.json();
+}
+
 export async function fetchBillingMedicines() {
   const response = await fetch(`${API_BASE}/sales/billing-medicines`, {
     headers: {

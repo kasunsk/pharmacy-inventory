@@ -45,6 +45,7 @@ export default function App() {
   const canAccessAnalytics = hasAnyRole(ACCESS.ANALYTICS) && hasFeature('analyticsEnabled');
   const canAccessAi = hasAnyRole(ACCESS.AI) && hasFeature('aiAssistantEnabled');
   const needsPharmacySelection = Boolean(isAuthenticated && !isSuperAdmin && session?.requiresPharmacySelection);
+  const pharmacyContextKey = String(session?.selectedPharmacyId ?? 'none');
 
   useEffect(() => {
     let active = true;
@@ -122,6 +123,50 @@ export default function App() {
               ? '/users'
               : '/login';
 
+  function renderProfileMenu() {
+    return (
+      <div className="profile-menu-wrap" ref={profileRef}>
+        <button
+          type="button"
+          className="profile-icon-btn"
+          onClick={() => setIsProfileOpen((v) => !v)}
+          aria-expanded={isProfileOpen}
+          aria-label="User profile menu"
+        >
+          <span className="profile-avatar-badge">{session.username.charAt(0).toUpperCase()}</span>
+        </button>
+        {isProfileOpen && (
+          <div className="profile-dropdown" role="menu">
+            <div className="profile-dropdown-header">
+              <span className="profile-avatar-badge large">{session.username.charAt(0).toUpperCase()}</span>
+              <div>
+                <strong>{session.username}</strong>
+                {!isSuperAdmin && <small>{session?.selectedPharmacyName || 'No pharmacy selected'}</small>}
+              </div>
+            </div>
+            <div className="profile-dropdown-divider" />
+            <NavLink
+              to="/profile"
+              className="profile-dropdown-item"
+              onClick={() => setIsProfileOpen(false)}
+              role="menuitem"
+            >
+              My Profile
+            </NavLink>
+            <button
+              type="button"
+              className="profile-dropdown-item ghost danger-action"
+              role="menuitem"
+              onClick={() => { setIsProfileOpen(false); logout(); }}
+            >
+              Sign Out
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className={`app-shell ${isAiOpen ? 'ai-open' : ''}`}>
       {isAuthenticated && !isAdminPortalRoute && !isSuperAdmin && (
@@ -143,58 +188,22 @@ export default function App() {
             {canAccessTransactions && <NavLink to="/transactions">Transactions</NavLink>}
             {canAccessAnalytics && <NavLink to="/sales-analytics">Analytics</NavLink>}
             {hasAnyRole(ACCESS.ADMIN) && <NavLink to="/users">Users</NavLink>}
-            <select
-              value={session?.selectedPharmacyId ?? ''}
-              onChange={async (event) => {
-                const value = event.target.value;
-                if (!value) return;
-                await selectPharmacy(Number(value));
-              }}
-              title="Active pharmacy"
-            >
-              {!session?.selectedPharmacyId && <option value="">Select pharmacy</option>}
-              {(session?.availablePharmacies || []).map((pharmacy) => (
-                <option key={pharmacy.id} value={pharmacy.id}>{pharmacy.name}</option>
-              ))}
-            </select>
-
-            <div className="profile-menu-wrap" ref={profileRef}>
-              <button
-                type="button"
-                className="profile-icon-btn"
-                onClick={() => setIsProfileOpen((v) => !v)}
-                aria-expanded={isProfileOpen}
-                aria-label="User profile menu"
+            <div className="top-nav-right">
+              <select
+                value={session?.selectedPharmacyId ?? ''}
+                onChange={async (event) => {
+                  const value = event.target.value;
+                  if (!value) return;
+                  await selectPharmacy(Number(value));
+                }}
+                title="Active pharmacy"
               >
-                <span className="profile-avatar-badge">{session.username.charAt(0).toUpperCase()}</span>
-              </button>
-              {isProfileOpen && (
-                <div className="profile-dropdown" role="menu">
-                  <div className="profile-dropdown-header">
-                    <span className="profile-avatar-badge large">{session.username.charAt(0).toUpperCase()}</span>
-                    <div>
-                      <strong>{session.username}</strong>
-                    </div>
-                  </div>
-                  <div className="profile-dropdown-divider" />
-                  <NavLink
-                    to="/profile"
-                    className="profile-dropdown-item"
-                    onClick={() => setIsProfileOpen(false)}
-                    role="menuitem"
-                  >
-                    My Profile
-                  </NavLink>
-                  <button
-                    type="button"
-                    className="profile-dropdown-item ghost danger-action"
-                    role="menuitem"
-                    onClick={() => { setIsProfileOpen(false); logout(); }}
-                  >
-                    Sign Out
-                  </button>
-                </div>
-              )}
+                {!session?.selectedPharmacyId && <option value="">Select pharmacy</option>}
+                {(session?.availablePharmacies || []).map((pharmacy) => (
+                  <option key={pharmacy.id} value={pharmacy.id}>{pharmacy.name}</option>
+                ))}
+              </select>
+              {renderProfileMenu()}
             </div>
           </nav>
         </header>
@@ -211,7 +220,9 @@ export default function App() {
           </div>
           <nav aria-label="Admin portal navigation">
             <NavLink to="/admin-portal/tenants">Tenants</NavLink>
-            <button type="button" className="ghost" onClick={logout}>Sign Out</button>
+            <div className="top-nav-right">
+              {renderProfileMenu()}
+            </div>
           </nav>
         </header>
       )}
@@ -238,7 +249,7 @@ export default function App() {
             path="/billing"
             element={(
               <ProtectedRoute allowedRoles={ACCESS.BILLING}>
-                {canAccessBilling ? <BillingPage /> : <Navigate to={defaultPath} replace />}
+                {canAccessBilling ? <BillingPage key={`billing-${pharmacyContextKey}`} /> : <Navigate to={defaultPath} replace />}
               </ProtectedRoute>
             )}
           />
@@ -246,7 +257,7 @@ export default function App() {
             path="/inventory"
             element={(
               <ProtectedRoute allowedRoles={ACCESS.INVENTORY_VIEW}>
-                {canAccessInventory ? <InventoryListPage /> : <Navigate to={defaultPath} replace />}
+                {canAccessInventory ? <InventoryListPage key={`inventory-${pharmacyContextKey}`} /> : <Navigate to={defaultPath} replace />}
               </ProtectedRoute>
             )}
           />
@@ -254,7 +265,7 @@ export default function App() {
             path="/inventory/:id"
             element={(
               <ProtectedRoute allowedRoles={ACCESS.INVENTORY_VIEW}>
-                {canAccessInventory ? <InventoryDetailPage /> : <Navigate to={defaultPath} replace />}
+                {canAccessInventory ? <InventoryDetailPage key={`inventory-detail-${pharmacyContextKey}`} /> : <Navigate to={defaultPath} replace />}
               </ProtectedRoute>
             )}
           />
@@ -262,7 +273,7 @@ export default function App() {
             path="/transactions"
             element={(
               <ProtectedRoute allowedRoles={ACCESS.TRANSACTIONS}>
-                {canAccessTransactions ? <TransactionHistoryPage /> : <Navigate to={defaultPath} replace />}
+                {canAccessTransactions ? <TransactionHistoryPage key={`transactions-${pharmacyContextKey}`} /> : <Navigate to={defaultPath} replace />}
               </ProtectedRoute>
             )}
           />
@@ -270,7 +281,7 @@ export default function App() {
             path="/sales-analytics"
             element={(
               <ProtectedRoute allowedRoles={ACCESS.ANALYTICS}>
-                {canAccessAnalytics ? <SalesAnalyticsPage /> : <Navigate to={defaultPath} replace />}
+                {canAccessAnalytics ? <SalesAnalyticsPage key={`analytics-${pharmacyContextKey}`} /> : <Navigate to={defaultPath} replace />}
               </ProtectedRoute>
             )}
           />

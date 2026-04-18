@@ -82,6 +82,9 @@ public class TenantService {
     public TenantResponse createTenant(CreateTenantRequest request) {
         String code = normalizeCode(request.code());
         String adminUsername = normalizeUsername(request.adminUsername());
+        String adminFirstName = normalizeRequiredText(request.adminFirstName(), "Tenant admin first name is required");
+        String adminLastName = normalizeRequiredText(request.adminLastName(), "Tenant admin last name is required");
+        String adminEmail = normalizeRequiredText(request.adminEmail(), "Tenant admin email is required");
         String adminGender = normalizeGender(request.adminGender());
         if (tenantRepository.findByCodeIgnoreCase(code).isPresent()) {
             throw new ApiException("Tenant code already exists");
@@ -105,6 +108,9 @@ public class TenantService {
         tenantAdmin.setUsername(adminUsername);
         tenantAdmin.setPasswordHash(passwordEncoder.encode(request.adminPassword().trim()));
         tenantAdmin.setRoles(Set.of(Role.ADMIN));
+        tenantAdmin.setFirstName(adminFirstName);
+        tenantAdmin.setLastName(adminLastName);
+        tenantAdmin.setEmail(adminEmail);
         tenantAdmin.setGender(adminGender);
         tenantAdmin.setDefaultPharmacy(pharmacy);
         tenantAdmin.getAssignedPharmacies().add(pharmacy);
@@ -246,6 +252,14 @@ public class TenantService {
         String normalized = gender == null ? "" : gender.trim().toUpperCase(Locale.ROOT);
         if (!"MALE".equals(normalized) && !"FEMALE".equals(normalized)) {
             throw new ApiException("Gender must be MALE or FEMALE");
+        }
+        return normalized;
+    }
+
+    private String normalizeRequiredText(String value, String errorMessage) {
+        String normalized = value == null ? "" : value.trim();
+        if (normalized.isBlank()) {
+            throw new ApiException(errorMessage);
         }
         return normalized;
     }
