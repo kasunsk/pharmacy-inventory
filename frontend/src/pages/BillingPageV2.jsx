@@ -109,7 +109,10 @@ export default function BillingPageV2() {
     if (!medicine || !Array.isArray(medicine.unitOptions)) {
       return null;
     }
-    return medicine.unitOptions.find((option) => option.unitType === unitType) || null;
+    const normalised = (unitType || '').toLowerCase();
+    return (
+      medicine.unitOptions.find((option) => (option.unitType || '').toLowerCase() === normalised) || null
+    );
   }
 
   function getRequiredBaseUnits(row, medicine) {
@@ -143,6 +146,9 @@ export default function BillingPageV2() {
       const selectedOption = getUnitOption(selected, patch.unitType);
       if (selectedOption) {
         next[index].sellingPrice = Number(selectedOption.sellingPrice || 0);
+      } else if (selected) {
+        // fallback: use medicine's base selling price when no per-unit option is configured
+        next[index].sellingPrice = Number(selected.sellingPrice || 0);
       }
     }
 
