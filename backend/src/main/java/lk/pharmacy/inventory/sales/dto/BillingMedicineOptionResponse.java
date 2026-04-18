@@ -7,10 +7,12 @@ public record BillingMedicineOptionResponse(
         Long id,
         String name,
         String unitType,
+        String baseUnit,
         List<String> allowedUnits,
         BigDecimal sellingPrice,
         int quantity,
-        boolean available
+        boolean available,
+        List<MedicineUnitOptionResponse> unitOptions
 ) {
 }
 

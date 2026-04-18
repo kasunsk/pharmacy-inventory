@@ -18,6 +18,8 @@ public record UpdateMedicineRequest(
         @NotNull BigDecimal purchasePrice,
         @NotNull BigDecimal sellingPrice,
         @Min(0) int quantity,
+        String baseUnit,
+        List<MedicineUnitDefinitionRequest> unitDefinitions,
         @NotBlank String modificationReason
 ) {
     public MedicineRequest toMedicineRequest() {
@@ -30,7 +32,9 @@ public record UpdateMedicineRequest(
                 allowedUnits,
                 purchasePrice,
                 sellingPrice,
-                quantity
+                quantity,
+                baseUnit,
+                unitDefinitions
         );
     }
 }

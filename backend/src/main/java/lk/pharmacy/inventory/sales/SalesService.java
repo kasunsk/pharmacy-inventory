@@ -1,6 +1,7 @@
 package lk.pharmacy.inventory.sales;
 
 import lk.pharmacy.inventory.domain.Medicine;
+import lk.pharmacy.inventory.domain.MedicineUnitDefinition;
 import lk.pharmacy.inventory.domain.Sale;
 import lk.pharmacy.inventory.domain.SaleItem;
 import lk.pharmacy.inventory.domain.User;
@@ -19,11 +20,7 @@ import java.math.BigDecimal;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.TemporalAdjusters;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Locale;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 
 @Service
 public class SalesService {
@@ -66,18 +63,26 @@ public class SalesService {
             Medicine medicine = medicineRepository.findByIdAndTenant_IdAndPharmacy_Id(itemRequest.medicineId(), tenantId, pharmacyId)
                     .orElseThrow(() -> new ApiException("Medicine not found: " + itemRequest.medicineId()));
 
-            if (medicine.getQuantity() < itemRequest.quantity()) {
-                throw new ApiException("Insufficient stock for medicine: " + medicine.getName());
-            }
-
             String requestedUnit = normalizeUnit(itemRequest.unitType());
-            Set<String> allowedUnits = resolveAllowedUnits(medicine);
-            if (!allowedUnits.contains(requestedUnit)) {
+            Map<String, MedicineUnitDefinition> unitDefinitions = resolveUnitDefinitions(medicine);
+            MedicineUnitDefinition selectedUnit = unitDefinitions.get(requestedUnit);
+            if (selectedUnit == null) {
                 throw new ApiException("Invalid unit for medicine: " + medicine.getName());
             }
 
+            long requiredBaseQuantityLong = (long) itemRequest.quantity() * selectedUnit.getConversionToBase();
+            if (requiredBaseQuantityLong > Integer.MAX_VALUE) {
+                throw new ApiException("Requested quantity is too large");
+            }
+            int requiredBaseQuantity = (int) requiredBaseQuantityLong;
+
+            int currentBaseQuantity = effectiveBaseQuantity(medicine);
+            if (currentBaseQuantity < requiredBaseQuantity) {
+                throw new ApiException("Insufficient stock for medicine: " + medicine.getName());
+            }
+
             boolean allowOverride = Boolean.TRUE.equals(itemRequest.allowPriceOverride());
-            BigDecimal inventoryPrice = medicine.getSellingPrice();
+            BigDecimal inventoryPrice = selectedUnit.getSellingPrice();
             BigDecimal requestedPrice = itemRequest.pricePerUnit();
             BigDecimal pricePerUnit;
             if (allowOverride) {
@@ -104,12 +109,13 @@ public class SalesService {
                 throw new ApiException("Custom dosage instruction is required when CUSTOM is selected");
             }
 
-            medicine.setQuantity(medicine.getQuantity() - itemRequest.quantity());
+            medicine.setBaseQuantity(currentBaseQuantity - requiredBaseQuantity);
+            medicine.setQuantity(medicine.getBaseQuantity()); // legacy compatibility
             medicineRepository.save(medicine);
 
             BigDecimal quantity = BigDecimal.valueOf(itemRequest.quantity());
             BigDecimal lineTotal = pricePerUnit.multiply(quantity);
-            BigDecimal lineCost = medicine.getPurchasePrice().multiply(quantity);
+            BigDecimal lineCost = selectedUnit.getPurchasePrice().multiply(quantity);
             beforeDiscount = beforeDiscount.add(lineTotal);
 
             SaleItem saleItem = new SaleItem();
@@ -124,7 +130,7 @@ public class SalesService {
             saleItem.setCustomDosageInstruction(customDosageInstruction);
             saleItem.setRemark(trimToNull(itemRequest.remark()));
             saleItem.setUnitPrice(pricePerUnit);
-            saleItem.setUnitCost(medicine.getPurchasePrice());
+            saleItem.setUnitCost(selectedUnit.getPurchasePrice());
             saleItem.setLineTotal(lineTotal);
             saleItem.setLineCost(lineCost);
             sale.getItems().add(saleItem);
@@ -196,15 +202,36 @@ public class SalesService {
         Long tenantId = currentUserService.getCurrentTenantId();
         Long pharmacyId = currentUserService.getCurrentPharmacy().getId();
         return medicineRepository.findByTenant_IdAndPharmacy_Id(tenantId, pharmacyId).stream()
-                .map(medicine -> new BillingMedicineOptionResponse(
-                        medicine.getId(),
-                        medicine.getName(),
-                        medicine.getUnitType(),
-                        resolveAllowedUnits(medicine).stream().toList(),
-                        medicine.getSellingPrice(),
-                        medicine.getQuantity(),
-                        medicine.getQuantity() > 0
-                ))
+                .map(medicine -> {
+                    Map<String, MedicineUnitDefinition> definitions = resolveUnitDefinitions(medicine);
+                    List<MedicineUnitOptionResponse> unitOptions = definitions.values().stream()
+                            .sorted(Comparator.comparingInt(MedicineUnitDefinition::getConversionToBase))
+                            .map(definition -> new MedicineUnitOptionResponse(
+                                    definition.getUnitType(),
+                                    definition.getParentUnit(),
+                                    definition.getUnitsPerParent(),
+                                    definition.getConversionToBase(),
+                                    definition.getPurchasePrice(),
+                                    definition.getSellingPrice(),
+                                    definition.getConversionToBase() <= 0
+                                            ? 0
+                                            : effectiveBaseQuantity(medicine) / definition.getConversionToBase()
+                            ))
+                            .toList();
+
+                    int baseQuantity = effectiveBaseQuantity(medicine);
+                    return new BillingMedicineOptionResponse(
+                            medicine.getId(),
+                            medicine.getName(),
+                            medicine.getUnitType(),
+                            medicine.getBaseUnit(),
+                            resolveAllowedUnits(medicine).stream().toList(),
+                            medicine.getSellingPrice(),
+                            baseQuantity,
+                            baseQuantity > 0,
+                            unitOptions
+                    );
+                })
                 .toList();
     }
 
@@ -343,7 +370,13 @@ public class SalesService {
         if (medicine.getAllowedUnits() != null) {
             medicine.getAllowedUnits().stream()
                     .map(this::trimToNull)
-                    .filter(value -> value != null)
+                    .filter(Objects::nonNull)
+                    .map(this::normalizeUnit)
+                    .forEach(resolved::add);
+        }
+        if (resolved.isEmpty() && medicine.getUnitDefinitions() != null) {
+            medicine.getUnitDefinitions().stream()
+                    .map(MedicineUnitDefinition::getUnitType)
                     .map(this::normalizeUnit)
                     .forEach(resolved::add);
         }
@@ -352,5 +385,35 @@ public class SalesService {
         }
         return resolved;
     }
-}
 
+    private Map<String, MedicineUnitDefinition> resolveUnitDefinitions(Medicine medicine) {
+        LinkedHashMap<String, MedicineUnitDefinition> definitions = new LinkedHashMap<>();
+        if (medicine.getUnitDefinitions() != null) {
+            for (MedicineUnitDefinition definition : medicine.getUnitDefinitions()) {
+                String unit = normalizeUnit(definition.getUnitType());
+                definitions.put(unit, definition);
+            }
+        }
+
+        if (definitions.isEmpty()) {
+            for (String unit : resolveAllowedUnits(medicine)) {
+                MedicineUnitDefinition fallback = new MedicineUnitDefinition();
+                fallback.setUnitType(unit);
+                fallback.setParentUnit(null);
+                fallback.setUnitsPerParent(null);
+                fallback.setConversionToBase(1);
+                fallback.setPurchasePrice(medicine.getPurchasePrice());
+                fallback.setSellingPrice(medicine.getSellingPrice());
+                definitions.put(unit, fallback);
+            }
+        }
+        return definitions;
+    }
+
+    private int effectiveBaseQuantity(Medicine medicine) {
+        if (medicine.getBaseQuantity() > 0) {
+            return medicine.getBaseQuantity();
+        }
+        return Math.max(medicine.getQuantity(), 0);
+    }
+}

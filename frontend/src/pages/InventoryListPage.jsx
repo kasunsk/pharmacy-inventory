@@ -5,44 +5,109 @@ import { createMedicine, fetchInventory, fetchInventoryAlertsSummary, updateMedi
 const UNIT_TYPES = ['tablet', 'capsule', 'box', 'card', 'bottle', 'sachet', 'tube', 'vial'];
 const PAGE_SIZES = [5, 10, 20, 50];
 
-function emptyForm() {
+function buildDefaultUnitDefinition(unit, baseUnit) {
   return {
-    name: '',
-    batchNumber: '',
-    expiryDate: '',
-    supplier: '',
-    allowedUnits: ['tablet'],
+    unitType: unit,
+    parentUnit: unit === baseUnit ? '' : baseUnit,
+    unitsPerParent: unit === baseUnit ? '' : '1',
     purchasePrice: '',
     sellingPrice: '',
     quantity: ''
   };
 }
 
+function ensureUnitDefinitions(form) {
+  const baseUnit = form.baseUnit || form.allowedUnits?.[0] || 'tablet';
+  const byUnit = new Map((form.unitDefinitions || []).map((definition) => [definition.unitType, definition]));
+  const nextDefinitions = (form.allowedUnits || []).map((unit) => {
+    const existing = byUnit.get(unit);
+    if (existing) {
+      return {
+        ...existing,
+        parentUnit: unit === baseUnit ? '' : (existing.parentUnit || baseUnit),
+        unitsPerParent: unit === baseUnit ? '' : (existing.unitsPerParent || '1')
+      };
+    }
+    return buildDefaultUnitDefinition(unit, baseUnit);
+  });
+  return {
+    ...form,
+    baseUnit,
+    unitDefinitions: nextDefinitions
+  };
+}
+
+function emptyForm() {
+  return ensureUnitDefinitions({
+    name: '',
+    batchNumber: '',
+    expiryDate: '',
+    supplier: '',
+    baseUnit: 'tablet',
+    allowedUnits: ['tablet'],
+    purchasePrice: '',
+    sellingPrice: '',
+    quantity: '',
+    unitDefinitions: [buildDefaultUnitDefinition('tablet', 'tablet')]
+  });
+}
+
 function toForm(item) {
   const existingUnits = Array.isArray(item.allowedUnits) && item.allowedUnits.length
     ? item.allowedUnits
-    : [item.unitType || 'tablet'];
-  return {
+    : [item.baseUnit || item.unitType || 'tablet'];
+  const baseQuantity = Number(item.baseQuantity ?? item.quantity ?? 0);
+  const unitDefinitions = Array.isArray(item.unitDefinitions) && item.unitDefinitions.length
+    ? item.unitDefinitions.map((definition) => ({
+      unitType: definition.unitType,
+      parentUnit: definition.parentUnit || '',
+      unitsPerParent: definition.unitsPerParent == null ? '' : String(definition.unitsPerParent),
+      purchasePrice: definition.purchasePrice ?? '',
+      sellingPrice: definition.sellingPrice ?? '',
+      quantity: definition.conversionToBase
+        ? String(Math.floor(baseQuantity / Number(definition.conversionToBase)))
+        : ''
+    }))
+    : existingUnits.map((unit) => buildDefaultUnitDefinition(unit, item.baseUnit || item.unitType || existingUnits[0]));
+
+  return ensureUnitDefinitions({
     name: item.name || '',
     batchNumber: item.batchNumber || '',
     expiryDate: item.expiryDate || '',
     supplier: item.supplier || '',
+    baseUnit: item.baseUnit || item.unitType || existingUnits[0],
     allowedUnits: existingUnits,
     purchasePrice: item.purchasePrice ?? '',
     sellingPrice: item.sellingPrice ?? '',
-    quantity: item.quantity ?? ''
-  };
+    quantity: item.baseQuantity ?? item.quantity ?? '',
+    unitDefinitions
+  });
 }
 
 function toPayload(form) {
-  const allowedUnits = Array.isArray(form.allowedUnits) ? form.allowedUnits.filter(Boolean) : [];
+  const normalized = ensureUnitDefinitions(form);
+  const allowedUnits = Array.isArray(normalized.allowedUnits) ? normalized.allowedUnits.filter(Boolean) : [];
+  const unitDefinitions = (normalized.unitDefinitions || [])
+    .filter((definition) => allowedUnits.includes(definition.unitType))
+    .map((definition) => ({
+      unitType: definition.unitType,
+      parentUnit: definition.unitType === normalized.baseUnit ? null : (definition.parentUnit || normalized.baseUnit),
+      unitsPerParent: definition.unitType === normalized.baseUnit ? null : Number(definition.unitsPerParent || 1),
+      purchasePrice: Number(definition.purchasePrice || 0),
+      sellingPrice: Number(definition.sellingPrice || 0),
+      quantity: Number(definition.quantity || 0)
+    }));
+
+  const baseDefinition = unitDefinitions.find((definition) => definition.unitType === normalized.baseUnit) || unitDefinitions[0];
   return {
-    ...form,
-    unitType: allowedUnits[0] || 'tablet',
+    ...normalized,
+    unitType: normalized.baseUnit,
+    baseUnit: normalized.baseUnit,
     allowedUnits,
-    purchasePrice: Number(form.purchasePrice),
-    sellingPrice: Number(form.sellingPrice),
-    quantity: Number(form.quantity)
+    unitDefinitions,
+    purchasePrice: baseDefinition ? baseDefinition.purchasePrice : Number(normalized.purchasePrice || 0),
+    sellingPrice: baseDefinition ? baseDefinition.sellingPrice : Number(normalized.sellingPrice || 0),
+    quantity: Number(normalized.quantity || 0)
   };
 }
 
@@ -53,7 +118,26 @@ function toggleUnitSelection(form, unit) {
   } else {
     selected.add(unit);
   }
-  return { ...form, allowedUnits: Array.from(selected) };
+
+  const nextAllowedUnits = Array.from(selected);
+  const nextBase = nextAllowedUnits.includes(form.baseUnit) ? form.baseUnit : (nextAllowedUnits[0] || 'tablet');
+  const nextForm = {
+    ...form,
+    allowedUnits: nextAllowedUnits,
+    baseUnit: nextBase
+  };
+  return ensureUnitDefinitions(nextForm);
+}
+
+function updateUnitDefinition(form, unitType, patch) {
+  return {
+    ...form,
+    unitDefinitions: (form.unitDefinitions || []).map((definition) =>
+      definition.unitType === unitType
+        ? { ...definition, ...patch }
+        : definition
+    )
+  };
 }
 
 function EyeIcon() {
@@ -75,6 +159,9 @@ function PencilIcon() {
 }
 
 function MedicineFields({ form, setForm, includeReason, modificationReason, setModificationReason }) {
+  const normalizedForm = ensureUnitDefinitions(form);
+  const unitOptions = normalizedForm.allowedUnits || [];
+
   return (
     <>
       <div className="form-grid">
@@ -82,16 +169,16 @@ function MedicineFields({ form, setForm, includeReason, modificationReason, setM
           Medicine name
           <input
             required
-            value={form.name}
-            onChange={(event) => setForm({ ...form, name: event.target.value })}
+            value={normalizedForm.name}
+            onChange={(event) => setForm({ ...normalizedForm, name: event.target.value })}
           />
         </label>
         <label>
           Batch
           <input
             required
-            value={form.batchNumber}
-            onChange={(event) => setForm({ ...form, batchNumber: event.target.value })}
+            value={normalizedForm.batchNumber}
+            onChange={(event) => setForm({ ...normalizedForm, batchNumber: event.target.value })}
           />
         </label>
         <label>
@@ -99,16 +186,16 @@ function MedicineFields({ form, setForm, includeReason, modificationReason, setM
           <input
             required
             type="date"
-            value={form.expiryDate}
-            onChange={(event) => setForm({ ...form, expiryDate: event.target.value })}
+            value={normalizedForm.expiryDate}
+            onChange={(event) => setForm({ ...normalizedForm, expiryDate: event.target.value })}
           />
         </label>
         <label>
           Supplier
           <input
             required
-            value={form.supplier}
-            onChange={(event) => setForm({ ...form, supplier: event.target.value })}
+            value={normalizedForm.supplier}
+            onChange={(event) => setForm({ ...normalizedForm, supplier: event.target.value })}
           />
         </label>
         <div className="full-width-field">
@@ -118,48 +205,118 @@ function MedicineFields({ form, setForm, includeReason, modificationReason, setM
               <label key={unit} className="role-pill">
                 <input
                   type="checkbox"
-                  checked={(form.allowedUnits || []).includes(unit)}
-                  onChange={() => setForm(toggleUnitSelection(form, unit))}
+                  checked={(normalizedForm.allowedUnits || []).includes(unit)}
+                  onChange={() => setForm(toggleUnitSelection(normalizedForm, unit))}
                 />
                 {unit}
               </label>
             ))}
           </div>
-          <small className="muted">Select one or more units that are valid for this medicine.</small>
+          <small className="muted">Select one or more units and configure hierarchy and conversion per medicine.</small>
         </div>
         <label>
-          Purchase price
-          <input
-            required
-            type="number"
-            min="0"
-            step="0.01"
-            value={form.purchasePrice}
-            onChange={(event) => setForm({ ...form, purchasePrice: event.target.value })}
-          />
+          Base unit
+          <select
+            value={normalizedForm.baseUnit}
+            onChange={(event) => setForm(ensureUnitDefinitions({ ...normalizedForm, baseUnit: event.target.value }))}
+          >
+            {unitOptions.map((unit) => (
+              <option key={unit} value={unit}>{unit}</option>
+            ))}
+          </select>
         </label>
         <label>
-          Selling price
+          Total stock in base units
           <input
-            required
             type="number"
             min="0"
-            step="0.01"
-            value={form.sellingPrice}
-            onChange={(event) => setForm({ ...form, sellingPrice: event.target.value })}
-          />
-        </label>
-        <label>
-          Quantity
-          <input
-            required
-            type="number"
-            min="0"
-            value={form.quantity}
-            onChange={(event) => setForm({ ...form, quantity: event.target.value })}
+            value={normalizedForm.quantity}
+            onChange={(event) => setForm({ ...normalizedForm, quantity: event.target.value })}
           />
         </label>
       </div>
+
+      <div className="table-wrap" style={{ marginTop: '14px' }}>
+        <table>
+          <thead>
+            <tr>
+              <th>Unit</th>
+              <th>Parent unit</th>
+              <th>Units / parent</th>
+              <th>Cost price</th>
+              <th>Selling price</th>
+              <th>Configured qty</th>
+            </tr>
+          </thead>
+          <tbody>
+            {normalizedForm.unitDefinitions.map((definition) => {
+              const isBase = definition.unitType === normalizedForm.baseUnit;
+              const selectableParents = unitOptions.filter((unit) => unit !== definition.unitType);
+              return (
+                <tr key={definition.unitType}>
+                  <td>{definition.unitType}</td>
+                  <td>
+                    {isBase ? (
+                      <span className="muted">Base unit</span>
+                    ) : (
+                      <select
+                        value={definition.parentUnit || normalizedForm.baseUnit}
+                        onChange={(event) => setForm(updateUnitDefinition(normalizedForm, definition.unitType, { parentUnit: event.target.value }))}
+                      >
+                        {selectableParents.map((unit) => (
+                          <option key={unit} value={unit}>{unit}</option>
+                        ))}
+                      </select>
+                    )}
+                  </td>
+                  <td>
+                    {isBase ? (
+                      <input value="1" readOnly />
+                    ) : (
+                      <input
+                        required
+                        type="number"
+                        min="1"
+                        value={definition.unitsPerParent}
+                        onChange={(event) => setForm(updateUnitDefinition(normalizedForm, definition.unitType, { unitsPerParent: event.target.value }))}
+                      />
+                    )}
+                  </td>
+                  <td>
+                    <input
+                      required
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={definition.purchasePrice}
+                      onChange={(event) => setForm(updateUnitDefinition(normalizedForm, definition.unitType, { purchasePrice: event.target.value }))}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      required
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={definition.sellingPrice}
+                      onChange={(event) => setForm(updateUnitDefinition(normalizedForm, definition.unitType, { sellingPrice: event.target.value }))}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="number"
+                      min="0"
+                      value={definition.quantity}
+                      onChange={(event) => setForm(updateUnitDefinition(normalizedForm, definition.unitType, { quantity: event.target.value }))}
+                    />
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
       {includeReason && (
         <label className="full-width-field">
           Modification reason
@@ -196,18 +353,55 @@ export default function InventoryListPage() {
   const [alertsLoading, setAlertsLoading] = useState(false);
   const [alertsError, setAlertsError] = useState('');
 
-  // Detect whether the edit form has any actual changes vs the original item.
-  // allowedUnits is compared order-independently via sorted join.
+  // Detect whether the edit form has any actual changes vs the original item,
+  // including unit hierarchy and conversion configuration.
   const isDirty = useMemo(() => {
     if (!editingItem) return true; // new-item form is always submittable
-    const original = toForm(editingItem);
-    const scalarKeys = ['name', 'batchNumber', 'expiryDate', 'supplier', 'purchasePrice', 'sellingPrice', 'quantity'];
+    const currentForm = ensureUnitDefinitions(form);
+    const original = ensureUnitDefinitions(toForm(editingItem));
+    const scalarKeys = ['name', 'batchNumber', 'expiryDate', 'supplier', 'quantity', 'baseUnit'];
+
+    // Check scalar fields for changes
     for (const key of scalarKeys) {
-      if (String(form[key] ?? '') !== String(original[key] ?? '')) return true;
+      if (String(currentForm[key] ?? '') !== String(original[key] ?? '')) {
+        return true;
+      }
     }
-    const sortedCurrent = [...(form.allowedUnits || [])].sort().join(',');
-    const sortedOriginal = [...(original.allowedUnits || [])].sort().join(',');
-    if (sortedCurrent !== sortedOriginal) return true;
+
+    // Check allowedUnits for changes - compare as sorted arrays for order-independent comparison
+    const currentUnits = Array.isArray(currentForm.allowedUnits) ? currentForm.allowedUnits : [];
+    const originalUnits = Array.isArray(original.allowedUnits) ? original.allowedUnits : [];
+
+    // If lengths differ, there's a change
+    if (currentUnits.length !== originalUnits.length) {
+      return true;
+    }
+
+    // Sort and compare for order-independent equality
+    const sortedCurrent = [...currentUnits].sort().join(',');
+    const sortedOriginal = [...originalUnits].sort().join(',');
+    if (sortedCurrent !== sortedOriginal) {
+      return true;
+    }
+
+    const serializeDefinitions = (definitions) =>
+      JSON.stringify(
+        (definitions || [])
+          .map((definition) => ({
+            unitType: definition.unitType,
+            parentUnit: definition.parentUnit || '',
+            unitsPerParent: String(definition.unitsPerParent || ''),
+            purchasePrice: String(definition.purchasePrice || ''),
+            sellingPrice: String(definition.sellingPrice || ''),
+            quantity: String(definition.quantity || '')
+          }))
+          .sort((a, b) => a.unitType.localeCompare(b.unitType))
+      );
+
+    if (serializeDefinitions(currentForm.unitDefinitions) !== serializeDefinitions(original.unitDefinitions)) {
+      return true;
+    }
+
     return false;
   }, [form, editingItem]);
 
@@ -425,7 +619,7 @@ export default function InventoryListPage() {
                   <td>{(item.allowedUnits || [item.unitType]).filter(Boolean).join(', ') || '-'}</td>
                    <td>{item.purchasePrice}</td>
                    <td>{item.sellingPrice}</td>
-                   <td>{item.quantity}</td>
+                   <td>{item.baseQuantity ?? item.quantity}</td>
                   <td>
                     <div className="icon-actions">
                       <button type="button" className="icon-btn ghost" onClick={() => setViewingItem(item)} aria-label={`View ${item.name}`} title="View details">
@@ -514,7 +708,7 @@ export default function InventoryListPage() {
               <span><strong>Purchase price</strong>{viewingItem.purchasePrice}</span>
               <span><strong>Selling price</strong>{viewingItem.sellingPrice}</span>
               <span><strong>Profit / unit</strong>{(Number(viewingItem.sellingPrice || 0) - Number(viewingItem.purchasePrice || 0)).toFixed(2)}</span>
-              <span><strong>Quantity</strong>{viewingItem.quantity}</span>
+              <span><strong>Base stock</strong>{viewingItem.baseQuantity ?? viewingItem.quantity}</span>
             </div>
           </article>
         </div>

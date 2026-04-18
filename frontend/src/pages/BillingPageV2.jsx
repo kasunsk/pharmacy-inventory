@@ -95,6 +95,29 @@ export default function BillingPageV2() {
     }
   }
 
+  function getAllowedUnits(medicine) {
+    if (Array.isArray(medicine?.unitOptions) && medicine.unitOptions.length) {
+      return medicine.unitOptions.map((option) => option.unitType);
+    }
+    const units = Array.isArray(medicine?.allowedUnits) && medicine.allowedUnits.length
+      ? medicine.allowedUnits
+      : [medicine?.unitType].filter(Boolean);
+    return units;
+  }
+
+  function getUnitOption(medicine, unitType) {
+    if (!medicine || !Array.isArray(medicine.unitOptions)) {
+      return null;
+    }
+    return medicine.unitOptions.find((option) => option.unitType === unitType) || null;
+  }
+
+  function getRequiredBaseUnits(row, medicine) {
+    const selectedUnit = getUnitOption(medicine, row.unitType);
+    const conversion = Number(selectedUnit?.conversionToBase || 1);
+    return Number(row.quantity || 0) * conversion;
+  }
+
   function updateRow(index, patch) {
     const next = [...rows];
     next[index] = { ...next[index], ...patch };
@@ -109,8 +132,18 @@ export default function BillingPageV2() {
       const selected = inventoryById.get(String(next[index].medicineId));
       next[index].medicineQuery = selected?.name || next[index].medicineQuery;
       const allowedUnits = getAllowedUnits(selected);
-      next[index].unitType = allowedUnits[0] || '';
-      next[index].sellingPrice = Number(selected?.sellingPrice || 0);
+      const defaultUnit = allowedUnits[0] || '';
+      const defaultOption = getUnitOption(selected, defaultUnit);
+      next[index].unitType = defaultUnit;
+      next[index].sellingPrice = Number(defaultOption?.sellingPrice ?? selected?.sellingPrice ?? 0);
+    }
+
+    if (patch.unitType !== undefined) {
+      const selected = inventoryById.get(String(next[index].medicineId));
+      const selectedOption = getUnitOption(selected, patch.unitType);
+      if (selectedOption) {
+        next[index].sellingPrice = Number(selectedOption.sellingPrice || 0);
+      }
     }
 
     if (patch.usageInstruction && patch.usageInstruction !== 'CUSTOM') {
@@ -144,13 +177,17 @@ export default function BillingPageV2() {
       if (row.quantity <= 0) {
         throw new Error(`${label}: quantity must be greater than zero.`);
       }
-      if (selected && row.quantity > Number(selected.quantity)) {
-        throw new Error(`${label}: quantity exceeds available stock (${selected.quantity}).`);
-      }
+
       const allowedUnits = getAllowedUnits(selected);
       if (!row.unitType || !allowedUnits.includes(row.unitType)) {
         throw new Error(`${label}: select a valid unit for the medicine.`);
       }
+
+      const requiredBaseUnits = getRequiredBaseUnits(row, selected);
+      if (selected && requiredBaseUnits > Number(selected.quantity || 0)) {
+        throw new Error(`${label}: quantity exceeds available stock for ${row.unitType}.`);
+      }
+
       if (row.usageInstruction === 'CUSTOM' && !row.customUsageInstruction.trim()) {
         throw new Error(`${label}: custom instruction is required.`);
       }
@@ -204,13 +241,6 @@ export default function BillingPageV2() {
     }
 
     return sorted.filter((item) => item.name.toLowerCase().includes(text));
-  }
-
-  function getAllowedUnits(medicine) {
-    const units = Array.isArray(medicine?.allowedUnits) && medicine.allowedUnits.length
-      ? medicine.allowedUnits
-      : [medicine?.unitType].filter(Boolean);
-    return units;
   }
 
   function selectMedicineFromSearch(index, medicine) {
@@ -327,7 +357,7 @@ export default function BillingPageV2() {
       {error && <p className="error">{error}</p>}
 
       <form className="panel" onSubmit={submitSale}>
-        <div className="form-grid">
+        <div className="billing-customer-row">
           <label>
             Customer name (optional)
             <input value={customerName} onChange={(event) => setCustomerName(event.target.value)} />
@@ -424,9 +454,12 @@ export default function BillingPageV2() {
                       onChange={(event) => updateRow(index, { unitType: event.target.value })}
                     >
                       {!row.unitType && <option value="">Select unit</option>}
-                      {getAllowedUnits(inventoryById.get(String(row.medicineId))).map((unit) => (
-                        <option key={unit} value={unit}>{unit}</option>
-                      ))}
+                      {getAllowedUnits(inventoryById.get(String(row.medicineId))).map((unit) => {
+                        const selectedMedicine = inventoryById.get(String(row.medicineId));
+                        const option = getUnitOption(selectedMedicine, unit);
+                        const stockLabel = option ? ` (${option.availableQuantity})` : '';
+                        return <option key={unit} value={unit}>{`${unit}${stockLabel}`}</option>;
+                      })}
                     </select>
                   </td>
                   <td><input value={money(row.sellingPrice)} readOnly /></td>

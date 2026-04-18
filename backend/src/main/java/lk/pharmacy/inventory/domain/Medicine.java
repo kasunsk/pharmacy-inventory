@@ -6,7 +6,9 @@ import jakarta.validation.constraints.Min;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 
 @Entity
@@ -47,6 +49,9 @@ public class Medicine {
     @Column(nullable = false, length = 50)
     private String unitType = "tablet";
 
+    @Column(name = "base_unit", nullable = false, length = 50)
+    private String baseUnit = "tablet";
+
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(
             name = "medicine_allowed_units",
@@ -54,6 +59,13 @@ public class Medicine {
     )
     @Column(name = "unit_type", nullable = false, length = 50)
     private Set<String> allowedUnits = new LinkedHashSet<>();
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(
+            name = "medicine_unit_definitions",
+            joinColumns = @JoinColumn(name = "medicine_id")
+    )
+    private List<MedicineUnitDefinition> unitDefinitions = new ArrayList<>();
 
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal purchasePrice;
@@ -64,6 +76,10 @@ public class Medicine {
     @Min(0)
     @Column(nullable = false)
     private int quantity;
+
+    @Min(0)
+    @Column(name = "base_quantity", nullable = false)
+    private int baseQuantity;
 
     public Long getId() {
         return id;
@@ -127,12 +143,28 @@ public class Medicine {
         this.unitType = unitType;
     }
 
+    public String getBaseUnit() {
+        return baseUnit;
+    }
+
+    public void setBaseUnit(String baseUnit) {
+        this.baseUnit = baseUnit;
+    }
+
     public Set<String> getAllowedUnits() {
         return allowedUnits;
     }
 
     public void setAllowedUnits(Set<String> allowedUnits) {
         this.allowedUnits = allowedUnits;
+    }
+
+    public List<MedicineUnitDefinition> getUnitDefinitions() {
+        return unitDefinitions;
+    }
+
+    public void setUnitDefinitions(List<MedicineUnitDefinition> unitDefinitions) {
+        this.unitDefinitions = unitDefinitions;
     }
 
     public BigDecimal getPurchasePrice() {
@@ -158,5 +190,12 @@ public class Medicine {
     public void setQuantity(int quantity) {
         this.quantity = quantity;
     }
-}
 
+    public int getBaseQuantity() {
+        return baseQuantity;
+    }
+
+    public void setBaseQuantity(int baseQuantity) {
+        this.baseQuantity = baseQuantity;
+    }
+}

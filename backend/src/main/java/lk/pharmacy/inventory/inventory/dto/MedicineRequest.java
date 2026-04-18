@@ -17,7 +17,9 @@ public record MedicineRequest(
         List<String> allowedUnits,
         @NotNull BigDecimal purchasePrice,
         @NotNull BigDecimal sellingPrice,
-        @Min(0) int quantity
+        @Min(0) int quantity,
+        String baseUnit,
+        List<MedicineUnitDefinitionRequest> unitDefinitions
 ) {
 }
 
