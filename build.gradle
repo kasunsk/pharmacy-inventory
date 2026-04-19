@@ -10,3 +10,9 @@ tasks.register('backendBootRun') {
     dependsOn(':backend:bootRun')
 }
 
+tasks.register('backendCleanBuild') {
+    group = 'build'
+    description = 'Run reproducible backend clean build with all checks'
+    dependsOn(':backend:clean', ':backend:test', ':backend:integrationTest', ':backend:check', ':backend:build')
+}
+

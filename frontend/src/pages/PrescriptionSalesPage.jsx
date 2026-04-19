@@ -462,7 +462,7 @@ export default function PrescriptionSalesPage() {
               {history.map((txn) => (
                 <tr key={txn.transactionId}>
                   <td>{txn.transactionId}</td>
-                  <td>{new Date(txn.dateTime).toLocaleString()}</td>
+                  <td>{formatDateTime(txn.dateTime)}</td>
                   <td>{txn.customerName || 'Walk-in'}</td>
                   <td>{txn.itemCount}</td>
                   <td>{money(txn.totalAmount)}</td>

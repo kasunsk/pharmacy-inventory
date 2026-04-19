@@ -4,10 +4,10 @@ spring:
   config:
     import: optional:file:../.env[.properties]
   datasource:
-    url: jdbc:h2:mem:pharmacy;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
-    driver-class-name: org.h2.Driver
-    username: sa
-    password:
+    url: ${SPRING_DATASOURCE_URL:jdbc:h2:mem:pharmacy;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE}
+    driver-class-name: ${SPRING_DATASOURCE_DRIVER_CLASS_NAME:org.h2.Driver}
+    username: ${SPRING_DATASOURCE_USERNAME:sa}
+    password: ${SPRING_DATASOURCE_PASSWORD:}
   jpa:
     hibernate:
       ddl-auto: none
@@ -28,18 +28,39 @@ app:
   demo-data:
     enabled: true
   jwt:
-    secret: 7a8f56caa34f5b6a7d8c9e01234567897a8f56caa34f5b6a7d8c9e0123456789
-    expiration-ms: 86400000
+    secret: ${APP_JWT_SECRET:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
+    expiration-ms: ${APP_JWT_EXPIRATION_MS:86400000}
   file-sign:
-    secret: 4c5d6e7f8091abcdeffedcba109876544c5d6e7f8091abcdeffedcba10987654
-    expiration-ms: 300000
+    secret: ${APP_FILE_SIGN_SECRET:abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789}
+    expiration-ms: ${APP_FILE_SIGN_EXPIRATION_MS:300000}
   cors:
-    allowed-origin: http://localhost:5173
+    allowed-origin: ${APP_CORS_ALLOWED_ORIGIN:http://localhost:5173}
   ai:
     openrouter:
       api-key: ${OPENROUTER_API_KEY:}
       model: openai/gpt-4o-mini
       endpoint: https://openrouter.ai/api/v1/chat/completions
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never
+
+info:
+  app:
+    name: pharmacy-inventory
+    version: ${APP_VERSION:dev}
+
+logging:
+  level:
+    root: ${LOG_LEVEL_ROOT:INFO}
+    lk.pharmacy.inventory: ${LOG_LEVEL_APP:INFO}
 
 ---
 spring:
@@ -47,10 +68,10 @@ spring:
     activate:
       on-profile: postgres
   datasource:
-    url: jdbc:postgresql://localhost:5432/pharmacy
-    username: postgres
-    password: postgres
-    driver-class-name: org.postgresql.Driver
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/pharmacy}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:postgres}
+    driver-class-name: ${SPRING_DATASOURCE_DRIVER_CLASS_NAME:org.postgresql.Driver}
   jpa:
     hibernate:
       ddl-auto: none

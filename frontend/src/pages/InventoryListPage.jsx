@@ -700,10 +700,10 @@ export default function InventoryListPage() {
               </div>
               <button type="button" className="ghost icon-btn" onClick={closeModal} aria-label="Close details">x</button>
             </div>
-            <div className="detail-grid">
-              <span><strong>Batch</strong>{viewingItem.batchNumber}</span>
-              <span><strong>Expiry</strong>{viewingItem.expiryDate}</span>
-              <span><strong>Supplier</strong>{viewingItem.supplier}</span>
+             <div className="detail-grid">
+               <span><strong>Batch</strong>{viewingItem.batchNumber}</span>
+               <span><strong>Expiry</strong>{formatDate(viewingItem.expiryDate)}</span>
+               <span><strong>Supplier</strong>{viewingItem.supplier}</span>
               <span><strong>Allowed units</strong>{(viewingItem.allowedUnits || [viewingItem.unitType]).filter(Boolean).join(', ') || '-'}</span>
               <span><strong>Purchase price</strong>{viewingItem.purchasePrice}</span>
               <span><strong>Selling price</strong>{viewingItem.sellingPrice}</span>

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPrescriptionSale, fetchBillingMedicines } from '../api';
+import { formatDateTime } from '../utils/dateUtils';
 
 const USAGE_OPTIONS = [
   { value: 'ORAL_ONCE_DAILY_AFTER_MEALS', label: 'Oral - Take 1 tablet once daily after meals' },
@@ -539,7 +540,7 @@ export default function BillingPageV2() {
         <article className="panel">
           <h3>Latest Bill - {latestBill.transactionId}</h3>
           <p>
-            <strong>Date:</strong> {new Date(latestBill.dateTime).toLocaleString()} | <strong>Sales person:</strong> {latestBill.salesPerson}
+            <strong>Date:</strong> {formatDateTime(latestBill.dateTime)} | <strong>Sales person:</strong> {latestBill.salesPerson}
           </p>
           <p>
             <strong>Customer:</strong> {latestBill.customerName || 'Walk-in'} | <strong>Phone:</strong> {latestBill.customerPhone || '-'}

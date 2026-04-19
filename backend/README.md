@@ -5,16 +5,36 @@ This module contains the pharmacy backend API with JWT auth, RBAC, inventory, sa
 ## Build and Run
 
 ```powershell
-Set-Location "C:\Users\kasun\OneDrive\Desktop\Projects\pharmacy-inventory\backend"
-gradle bootRun
+Set-Location "C:\Users\kasun\OneDrive\Desktop\Projects\pharmacy-inventory"
+.\gradlew.bat :backend:bootRun
 ```
 
-## Run Tests
+## Run Tests and Quality Checks
 
 ```powershell
-Set-Location "C:\Users\kasun\OneDrive\Desktop\Projects\pharmacy-inventory\backend"
-gradle test
+Set-Location "C:\Users\kasun\OneDrive\Desktop\Projects\pharmacy-inventory"
+.\gradlew.bat :backend:test
+.\gradlew.bat :backend:integrationTest
+.\gradlew.bat :backend:check
 ```
+
+Integration tests are identified with the `*IntegrationTest` naming convention.
+
+## Health Endpoints
+
+- `GET /actuator/health`
+- `GET /actuator/info`
+
+These endpoints are exposed for container/runtime health checks.
+
+## Container Build
+
+```powershell
+Set-Location "C:\Users\kasun\OneDrive\Desktop\Projects\pharmacy-inventory"
+docker build -f backend/Dockerfile -t pharmacy-backend:dev .
+```
+
+Runtime configuration (including secrets) is supplied through environment variables.
 
 ## Key Endpoints for Inventory Viewing
 

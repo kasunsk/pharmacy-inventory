@@ -2,6 +2,8 @@ plugins {
     id 'java'
     id 'org.springframework.boot' version '3.3.5'
     id 'io.spring.dependency-management' version '1.1.6'
+    id 'jacoco'
+    id 'checkstyle'
 }
 
 group = 'lk.pharmacy'
@@ -22,6 +24,7 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
     implementation 'org.flywaydb:flyway-core'
 
     implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
@@ -29,7 +32,7 @@ dependencies {
     runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
 
     runtimeOnly 'com.h2database:h2'
-    runtimeOnly 'org.postgresql:postgresql'
+    runtimeOnly 'org.postgresql:postgresql:42.7.7'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.security:spring-security-test'
@@ -38,5 +41,57 @@ dependencies {
 
 tasks.named('test') {
     useJUnitPlatform()
+    // Keep unit tests deterministic by excluding integration suites.
+    filter {
+        excludeTestsMatching '*IntegrationTest'
+    }
+}
+
+tasks.register('integrationTest', Test) {
+    description = 'Runs integration tests.'
+    group = 'verification'
+    useJUnitPlatform()
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    shouldRunAfter tasks.named('test')
+    filter {
+        includeTestsMatching '*IntegrationTest'
+    }
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('integrationTest')
+    dependsOn tasks.named('jacocoTestReport')
+}
+
+checkstyle {
+    toolVersion = '10.17.0'
+    configFile = file("${rootProject.projectDir}/config/checkstyle/checkstyle.xml")
+}
+
+tasks.withType(Checkstyle).configureEach {
+    ignoreFailures = true
+}
+
+jacoco {
+    toolVersion = '0.8.12'
+}
+
+tasks.named('jacocoTestReport', JacocoReport) {
+    dependsOn tasks.named('test')
+    reports {
+        xml.required = true
+        html.required = true
+    }
+}
+
+tasks.named('jar') {
+    reproducibleFileOrder = true
+    preserveFileTimestamps = false
+}
+
+tasks.named('bootJar') {
+    reproducibleFileOrder = true
+    preserveFileTimestamps = false
 }
 

@@ -111,19 +111,20 @@ export default function ProfilePage() {
         )}
       </div>
 
-      <form className="panel" onSubmit={handleSave}>
-        <h3>Edit Details</h3>
-        <div className="form-grid">
-          {PROFILE_FIELDS.map(([key, label, type]) => (
-            <label key={key}>
-              {label}
-              <input
-                type={type}
-                value={form[key]}
-                onChange={(event) => setForm({ ...form, [key]: event.target.value })}
-              />
-            </label>
-          ))}
+       <form className="panel" onSubmit={handleSave}>
+         <h3>Edit Details</h3>
+         <div className="form-grid">
+           {PROFILE_FIELDS.map(([key, label, type]) => (
+             <label key={key}>
+               {label}
+               <input
+                 type={type}
+                 value={form[key]}
+                 onChange={(event) => setForm({ ...form, [key]: event.target.value })}
+                 placeholder={type === 'date' ? getDatePlaceholder() : undefined}
+               />
+             </label>
+           ))}
           <label>
             New password
             <input

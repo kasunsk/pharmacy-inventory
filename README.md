@@ -138,6 +138,7 @@ pharmacy-inventory/
 - Java 17+
 - Gradle
 - Node.js 18+
+- Docker Desktop (for containerized local runtime)
 
 ### Backend
 
@@ -164,6 +165,70 @@ npm run dev
 ```
 
 Frontend default URL: `http://localhost:5173`
+
+## Containerized Local Development
+
+This repository includes production-style containerization with separate services for frontend, backend, and PostgreSQL.
+
+### One-command startup
+
+```powershell
+Set-Location "C:\Users\kasun\OneDrive\Desktop\Projects\pharmacy-inventory"
+Copy-Item .env.example .env
+docker compose up -d --build
+```
+
+### Verify services
+
+```powershell
+docker compose ps
+docker compose logs -f backend
+```
+
+Endpoints:
+- Frontend: `http://localhost:5173`
+- Backend API: `http://localhost:8080`
+- Backend health: `http://localhost:8080/actuator/health`
+
+### Stop stack
+
+```powershell
+docker compose down
+```
+
+## Build and Quality Gates
+
+Backend Gradle pipelines now support:
+- clean build
+- unit tests
+- integration tests (`*IntegrationTest`)
+- code quality checks (Checkstyle reports)
+- test coverage report (JaCoCo)
+
+Run full backend verification:
+
+```powershell
+Set-Location "C:\Users\kasun\OneDrive\Desktop\Projects\pharmacy-inventory"
+.\gradlew.bat :backend:clean :backend:test :backend:integrationTest :backend:check
+```
+
+## CI/CD
+
+- GitHub Actions workflow: `.github/workflows/ci.yml`
+  - triggers on push + pull requests to `main`/`master`
+  - runs backend checks, frontend build, and Docker image builds
+- Jenkins pipeline: `Jenkinsfile`
+  - checkout, Gradle build/test/integration, frontend build, Docker build
+  - optional Docker registry push using Jenkins credentials (`docker-registry-creds`)
+
+## Security and Production Hardening
+
+- No secrets are committed; use `.env`/CI secret stores.
+- Backend secrets and runtime config are environment-driven (`application.yml` placeholders).
+- Containers run as non-root users in runtime images.
+- Health checks are enabled for backend/frontend/postgres in `docker-compose.yml`.
+- CVE mitigation applied: PostgreSQL JDBC driver pinned to `42.7.7`.
+- Add image scanning in CI/Jenkins (Trivy stage already included in `Jenkinsfile`).
 
 ## Environment Configuration
 

@@ -53,7 +53,10 @@ public class SecurityConfig {
                                 "/h2-console/**",
                                 "/files/view/**",
                                 "/docs/tech/**",
-                                "/tech/docs/**"
+                                "/tech/docs/**",
+                                "/actuator/health",
+                                "/actuator/health/**",
+                                "/actuator/info"
                         ).permitAll()
                         .anyRequest().authenticated())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

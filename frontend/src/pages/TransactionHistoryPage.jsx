@@ -196,10 +196,10 @@ export default function TransactionHistoryPage() {
               </div>
               <button type="button" className="ghost icon-btn" onClick={() => setSelectedBill(null)} aria-label="Close details">x</button>
             </div>
-            <p>
-              <strong>Date:</strong> {new Date(selectedBill.dateTime).toLocaleString()} | <strong>Sales person:</strong>{' '}
-              {selectedBill.salesPerson}
-            </p>
+             <p>
+               <strong>Date:</strong> {formatDateTime(selectedBill.dateTime)} | <strong>Sales person:</strong>{' '}
+               {selectedBill.salesPerson}
+             </p>
             <p>
               <strong>Customer:</strong> {selectedBill.customerName || 'Walk-in'} | <strong>Phone:</strong>{' '}
               {selectedBill.customerPhone || '-'}
