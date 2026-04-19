@@ -15,6 +15,7 @@ import TenantManagementPage from './pages/TenantManagementPage';
 import UserManagementPage from './pages/UserManagementPage';
 import ProfilePage from './pages/ProfilePage';
 import PharmacySelectionPage from './pages/PharmacySelectionPage';
+import TechDocsPage from './pages/TechDocsPage';
 
 const ACCESS = {
   BILLING: ['BILLING'],
@@ -236,6 +237,10 @@ export default function App() {
           <Route path="/" element={<Navigate to={defaultPath} replace />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/super-admin/login" element={<SuperAdminLoginPage />} />
+          <Route path="/docs/tech" element={<TechDocsPage />} />
+          <Route path="/docs/tech/*" element={<TechDocsPage />} />
+          <Route path="/tech-docs" element={<Navigate to="/docs/tech" replace />} />
+          <Route path="/tech-docs/*" element={<Navigate to="/docs/tech" replace />} />
           <Route
             path="/select-pharmacy"
             element={(

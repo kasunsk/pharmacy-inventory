@@ -526,3 +526,42 @@ export async function askAiAssistant(payload) {
   return response.json();
 }
 
+export async function fetchDocsCatalog() {
+  const response = await fetch(`${API_BASE}/docs/tech/list`);
+  if (!response.ok) {
+    throw await parseApiError(response, 'Failed to load documentation catalog.');
+  }
+  return response.json();
+}
+
+export async function fetchDocContent(path, options = {}) {
+  const params = new URLSearchParams();
+  if (options.domain) {
+    params.set('domain', options.domain);
+  }
+  params.set('format', options.format || 'text');
+  const response = await fetch(`${API_BASE}/docs/tech/${encodeURI(path)}?${params.toString()}`);
+  if (!response.ok) {
+    throw await parseApiError(response, `Failed to load document: ${path}`);
+  }
+  if ((options.format || 'text') === 'json') {
+    return response.json();
+  }
+  return response.text();
+}
+
+export async function searchDocs(keyword, options = {}) {
+  const params = new URLSearchParams({ keyword });
+  if (options.domain) {
+    params.set('domain', options.domain);
+  }
+  if (options.category) {
+    params.set('category', options.category);
+  }
+  const response = await fetch(`${API_BASE}/docs/tech/search?${params.toString()}`);
+  if (!response.ok) {
+    throw await parseApiError(response, 'Documentation search failed.');
+  }
+  return response.json();
+}
+
